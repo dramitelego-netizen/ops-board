@@ -39,8 +39,15 @@ function escapeHtml(value) {
 
 function statusBadge(online) {
   return online
-    ? `<span class="badge badge-online">On</span>`
-    : `<span class="badge badge-offline">Off</span>`;
+    ? `<span class="badge badge-online"><span class="badge-pulse"></span>Online</span>`
+    : `<span class="badge badge-offline">Offline</span>`;
+}
+
+function pingLevel(ping, online) {
+  if (!online || ping == null) return 0;
+  if (ping <= 30) return 3;
+  if (ping <= 80) return 2;
+  return 1;
 }
 
 function renderServers() {
@@ -48,19 +55,31 @@ function renderServers() {
   serversSummary.textContent = `${onlineCount} / ${servers.length} онлайн`;
 
   serverList.innerHTML = servers
-    .map(
-      (server) => `
-      <li class="server-item color-${server.color || "slate"}" data-id="${escapeHtml(server.id)}">
+    .map((server, index) => {
+      const online = Boolean(server.online);
+      const level = pingLevel(server.ping, online);
+      return `
+      <li
+        class="server-item color-${server.color || "slate"} ${online ? "is-online" : "is-offline"}"
+        data-id="${escapeHtml(server.id)}"
+        style="--i:${index}"
+      >
+        <span class="strip" aria-hidden="true"></span>
         <span class="dot" aria-hidden="true"></span>
         <h3 class="server-name">${escapeHtml(server.name)}</h3>
-        ${statusBadge(Boolean(server.online))}
-        <div class="stat" data-metric="ping">
-          <span class="stat-label">Пинг</span>
-          ${server.online && server.ping != null ? `${server.ping}` : "—"}
+        ${statusBadge(online)}
+        <div class="ping-box" data-metric="ping">
+          <div class="ping-bars" aria-hidden="true" data-level="${level}">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Пинг</span>
+            <strong>${online && server.ping != null ? `${server.ping}` : "—"}</strong>
+          </div>
         </div>
       </li>
-    `
-    )
+    `;
+    })
     .join("");
 }
 
