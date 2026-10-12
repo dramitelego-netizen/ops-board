@@ -210,17 +210,31 @@ body {
 }
 
 .strip {
+  position: relative;
   width: 5px;
   align-self: stretch;
   min-height: 28px;
   border-radius: 99px;
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
+  background: rgba(148, 178, 210, 0.16);
+  overflow: hidden;
 }
 
-.server-item.is-online .strip {
-  animation: strip-pulse 2.2s ease-out infinite;
+.strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(18% + var(--ping-q, 0) * 82%);
+  border-radius: 99px;
+  background: var(--accent);
+  transition: height 0.45s ease;
 }
+
+.server-item.tone-good .strip::after { background: var(--teal); }
+.server-item.tone-mid .strip::after { background: #fbbf24; }
+.server-item.tone-bad .strip::after { background: var(--coral); }
+.server-item.is-offline .strip::after { height: 12%; background: rgba(148, 178, 210, 0.35); }
 
 .dot {
   width: 10px;
@@ -295,33 +309,36 @@ body {
 .ping-box {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
-.ping-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
+.ping-arc {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  transform: rotateY(0);
 }
 
-.ping-bars span {
-  width: 3px;
-  border-radius: 99px;
-  background: rgba(148, 178, 210, 0.18);
-  transition: background 0.25s ease, height 0.25s ease;
+.ping-arc-bg,
+.ping-arc-fg {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
 }
 
-.ping-bars span:nth-child(1) { height: 5px; }
-.ping-bars span:nth-child(2) { height: 9px; }
-.ping-bars span:nth-child(3) { height: 13px; }
-
-.ping-bars[data-level="1"] span:nth-child(1),
-.ping-bars[data-level="2"] span:nth-child(-n+2),
-.ping-bars[data-level="3"] span {
-  background: var(--accent);
+.ping-arc-bg {
+  stroke: rgba(148, 178, 210, 0.16);
 }
+
+.ping-arc-fg {
+  stroke: var(--teal);
+  transition: stroke-dashoffset 0.45s ease, stroke 0.3s ease;
+}
+
+.ping-arc.tone-good .ping-arc-fg { stroke: var(--teal); }
+.ping-arc.tone-mid .ping-arc-fg { stroke: #fbbf24; }
+.ping-arc.tone-bad .ping-arc-fg { stroke: var(--coral); }
 
 .stat {
   font-family: "Chakra Petch", sans-serif;
@@ -335,6 +352,11 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
 }
+
+.server-item.tone-good [data-ping] { color: var(--teal); }
+.server-item.tone-mid [data-ping] { color: #fbbf24; }
+.server-item.tone-bad [data-ping] { color: var(--coral); }
+.server-item.is-offline [data-ping] { color: var(--ink-soft); }
 
 .badge-slot {
   display: flex;
@@ -472,12 +494,13 @@ body {
   .ping-box {
     justify-self: end;
     justify-content: flex-end;
-    gap: 0;
+    gap: 5px;
     min-width: 0;
   }
 
-  .ping-bars {
-    display: none;
+  .ping-arc {
+    width: 24px;
+    height: 24px;
   }
 
   .stat {
