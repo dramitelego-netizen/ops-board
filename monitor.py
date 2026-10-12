@@ -68,8 +68,18 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.end_headers()
+
     def do_GET(self):
-        if self.path.split("?", 1)[0] == "/api/status":
+        path = self.path.split("?", 1)[0]
+        if path in ("/api/status", "/ops-board/api/status"):
             payload = {
                 "updatedAt": time.strftime("%H:%M:%S"),
                 "servers": check_all(),

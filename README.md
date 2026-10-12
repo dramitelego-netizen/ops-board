@@ -10,9 +10,12 @@ py monitor.py
 
 Откройте http://127.0.0.1:5173/
 
-Серверы настраиваются в `servers.json`. Статус обновляется каждые 3 секунды через `/api/status`.
+Серверы настраиваются в `servers.json`.
 
-> Браузер сам не может пинговать игровые порты — для этого нужен `monitor.py`.
+- Локально: `py monitor.py` → живой пинг каждые несколько секунд (`/api/status`)
+- На GitHub Pages: пинг пишет GitHub Action в `status.json` примерно каждые 5 минут
+
+Сайт: https://dramitelego-netizen.github.io/ops-board/
 
 ## Что дальше для VK
 

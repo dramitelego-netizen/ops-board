@@ -1,0 +1,59 @@
+{
+  "updatedAt": "23:28:21",
+  "servers": [
+    {
+      "id": "list",
+      "name": "Server list",
+      "ip": "195.211.128.131",
+      "port": 4000,
+      "color": "slate",
+      "online": true,
+      "ping": 23
+    },
+    {
+      "id": "white",
+      "name": "Белый",
+      "ip": "195.211.128.130",
+      "port": 2001,
+      "color": "white",
+      "online": true,
+      "ping": 11
+    },
+    {
+      "id": "blue",
+      "name": "Синий",
+      "ip": "195.211.128.136",
+      "port": 2001,
+      "color": "blue",
+      "online": true,
+      "ping": 24
+    },
+    {
+      "id": "green",
+      "name": "Зелёный",
+      "ip": "195.211.128.133",
+      "port": 2001,
+      "color": "green",
+      "online": true,
+      "ping": 38
+    },
+    {
+      "id": "red",
+      "name": "Красный",
+      "ip": "195.211.128.132",
+      "port": 2001,
+      "color": "red",
+      "online": true,
+      "ping": 11
+    },
+    {
+      "id": "yellow",
+      "name": "Жёлтый",
+      "ip": "195.211.128.131",
+      "port": 2001,
+      "color": "yellow",
+      "online": true,
+      "ping": 38
+    }
+  ]
+}

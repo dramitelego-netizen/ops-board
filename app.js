@@ -1,9 +1,10 @@
 /**
  * Дашборд: мониторинг слева, события справа.
- * Статус серверов — /api/status (monitor.py)
+ * 1) пробует живой API (monitor.py)
+ * 2) иначе берёт status.json (GitHub Actions)
  */
 
-const REFRESH_MS = 3000;
+const REFRESH_MS = 15000;
 
 const fallbackServers = [
   { id: "list", name: "Server list", ip: "195.211.128.131", port: 4000, color: "slate", online: false, ping: null },
@@ -96,16 +97,32 @@ function applyStatus(nextServers, updatedAt) {
   lastUpdate.textContent = updatedAt || "—";
 }
 
+async function loadJson(url) {
+  const res = await fetch(`${url}?t=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 async function fetchStatus() {
-  try {
-    const res = await fetch(`/api/status?t=${Date.now()}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    applyStatus(data.servers || [], data.updatedAt);
-  } catch {
-    renderServers();
-    lastUpdate.textContent = "нет связи";
+  const sources = [
+    "./api/status",
+    "/api/status",
+    "./status.json",
+  ];
+
+  for (const url of sources) {
+    try {
+      const data = await loadJson(url);
+      if (!data || !Array.isArray(data.servers)) continue;
+      applyStatus(data.servers, data.updatedAt);
+      return;
+    } catch {
+      // пробуем следующий источник
+    }
   }
+
+  renderServers();
+  lastUpdate.textContent = "нет связи";
 }
 
 function init() {
