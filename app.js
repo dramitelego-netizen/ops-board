@@ -1,7 +1,6 @@
 /**
  * Дашборд: мониторинг слева, события справа.
- * Серверы: API / status.json
- * События: events.json (позже можно подтягивать из VK)
+ * Обновления статуса без пересоздания списка (без дёрганья).
  */
 
 const REFRESH_MS = 15000;
@@ -28,6 +27,8 @@ const serversSummary = document.getElementById("servers-summary");
 
 let servers = fallbackServers.map((s) => ({ ...s }));
 let events = fallbackEvents.map((e) => ({ ...e }));
+let listBuilt = false;
+let eventsSignature = "";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -50,40 +51,82 @@ function pingLevel(ping, online) {
   return 1;
 }
 
-function renderServers() {
-  const onlineCount = servers.filter((s) => s.online).length;
-  serversSummary.textContent = `${onlineCount} / ${servers.length} онлайн`;
-
+function buildServers() {
   serverList.innerHTML = servers
-    .map((server, index) => {
+    .map((server) => {
       const online = Boolean(server.online);
       const level = pingLevel(server.ping, online);
       return `
       <li
         class="server-item color-${server.color || "slate"} ${online ? "is-online" : "is-offline"}"
         data-id="${escapeHtml(server.id)}"
-        style="--i:${index}"
       >
         <span class="strip" aria-hidden="true"></span>
         <span class="dot" aria-hidden="true"></span>
         <h3 class="server-name">${escapeHtml(server.name)}</h3>
-        ${statusBadge(online)}
-        <div class="ping-box" data-metric="ping">
+        <div class="badge-slot">${statusBadge(online)}</div>
+        <div class="ping-box">
           <div class="ping-bars" aria-hidden="true" data-level="${level}">
             <span></span><span></span><span></span>
           </div>
           <div class="stat">
             <span class="stat-label">Пинг</span>
-            <strong>${online && server.ping != null ? `${server.ping}` : "—"}</strong>
+            <strong data-ping>${online && server.ping != null ? `${server.ping}` : "—"}</strong>
           </div>
         </div>
       </li>
     `;
     })
     .join("");
+  listBuilt = true;
+  updateSummary();
+}
+
+function updateSummary() {
+  const onlineCount = servers.filter((s) => s.online).length;
+  serversSummary.textContent = `${onlineCount} / ${servers.length} онлайн`;
+}
+
+function patchServers() {
+  if (!listBuilt || serverList.children.length !== servers.length) {
+    buildServers();
+    return;
+  }
+
+  for (const server of servers) {
+    const row = serverList.querySelector(`[data-id="${server.id}"]`);
+    if (!row) {
+      buildServers();
+      return;
+    }
+
+    const online = Boolean(server.online);
+    row.classList.toggle("is-online", online);
+    row.classList.toggle("is-offline", !online);
+
+    const badgeSlot = row.querySelector(".badge-slot");
+    const nextBadge = statusBadge(online);
+    if (badgeSlot && badgeSlot.innerHTML !== nextBadge) {
+      badgeSlot.innerHTML = nextBadge;
+    }
+
+    const bars = row.querySelector(".ping-bars");
+    if (bars) bars.dataset.level = String(pingLevel(server.ping, online));
+
+    const pingEl = row.querySelector("[data-ping]");
+    if (pingEl) {
+      pingEl.textContent = online && server.ping != null ? `${server.ping}` : "—";
+    }
+  }
+
+  updateSummary();
 }
 
 function renderEvents() {
+  const signature = JSON.stringify(events);
+  if (signature === eventsSignature && eventList.children.length) return;
+  eventsSignature = signature;
+
   eventList.innerHTML = events
     .map(
       (event) => `
@@ -102,28 +145,9 @@ function renderEvents() {
     .join("");
 }
 
-function flash(el) {
-  if (!el) return;
-  el.classList.remove("flash");
-  void el.offsetWidth;
-  el.classList.add("flash");
-}
-
 function applyStatus(nextServers, updatedAt) {
-  const prev = new Map(servers.map((s) => [s.id, s]));
   servers = nextServers;
-  renderServers();
-
-  for (const server of servers) {
-    const old = prev.get(server.id);
-    if (!old) continue;
-    const row = serverList.querySelector(`[data-id="${server.id}"]`);
-    if (!row) continue;
-    if (old.ping !== server.ping || old.online !== server.online) {
-      flash(row.querySelector('[data-metric="ping"]'));
-    }
-  }
-
+  patchServers();
   lastUpdate.textContent = updatedAt || "—";
 }
 
@@ -147,7 +171,7 @@ async function fetchStatus() {
     }
   }
 
-  renderServers();
+  patchServers();
   lastUpdate.textContent = "нет связи";
 }
 
@@ -164,7 +188,7 @@ async function fetchEvents() {
 }
 
 function init() {
-  renderServers();
+  buildServers();
   renderEvents();
   fetchEvents();
   fetchStatus();
