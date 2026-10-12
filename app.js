@@ -3,7 +3,7 @@
  * Обновления статуса без пересоздания списка (без дёрганья).
  */
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 30000;
 
 const fallbackServers = [
   { id: "list", name: "Server list", ip: "195.211.128.131", port: 4000, color: "slate", online: false, ping: null },

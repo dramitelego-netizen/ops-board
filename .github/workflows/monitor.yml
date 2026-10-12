@@ -2,7 +2,8 @@ name: Update server status
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # запасной режим, если ПК выключен (GitHub обычно не чаще ~1 мин)
+    - cron: "*/1 * * * *"
   workflow_dispatch:
   push:
     branches: [main]

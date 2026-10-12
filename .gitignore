@@ -4,3 +4,4 @@ Desktop.ini
 *.log
 __pycache__/
 .venv/
+.env
