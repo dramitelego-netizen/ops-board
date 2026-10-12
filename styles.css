@@ -464,6 +464,12 @@ body {
   border-color: rgba(180, 210, 240, 0.4);
 }
 
+.admin-btn-main {
+  background: rgba(45, 212, 191, 0.16);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: #5eead4;
+}
+
 /* ===== Телефон: сверху мониторинг, снизу события ===== */
 @media (max-width: 719px) {
   .cols {

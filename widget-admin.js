@@ -1,13 +1,11 @@
 /**
- * Кнопки админа: добавить в группу / поставить виджет / получить токен.
- * Работает только внутри VK (vkBridge) и для админов сообщества.
+ * Установка виджета под шапкой группы (compact_list).
  */
 
 function getLaunchParams() {
   const params = new URLSearchParams(window.location.search);
   const out = {};
   for (const [key, value] of params.entries()) out[key] = value;
-  // иногда параметры приходят в hash
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   for (const [key, value] of hash.entries()) {
     if (!(key in out)) out[key] = value;
@@ -30,24 +28,43 @@ async function loadStatusServers() {
   }
 }
 
-function buildWidgetCode(servers) {
-  const lines = [];
+function buildWidgetCode(servers, appId) {
   let online = 0;
-  for (const s of servers) {
+  const rows = servers.map((s) => {
     const isOn = Boolean(s.online);
     if (isOn) online += 1;
-    const mark = isOn ? "Online" : "Offline";
-    const ping = isOn && s.ping != null ? `${s.ping} ms` : "—";
-    lines.push(`${s.name}: ${mark} · ${ping}`);
-  }
+    const row = {
+      title: String(s.name || "Server"),
+      descr: isOn ? "Online" : "Offline",
+      button: isOn && s.ping != null ? `${s.ping} ms` : "—",
+    };
+    if (appId) {
+      const url = `https://vk.com/app${appId}`;
+      row.title_url = url;
+      row.button_url = url;
+    }
+    return row;
+  });
+
   const payload = {
-    title: `Серверы · ${online}/${servers.length || 0} online`,
-    text: lines.join("\n") || "Нет данных",
+    title: "Игровые серверы",
+    title_counter: online,
+    rows: rows.length
+      ? rows
+      : [{ title: "Нет данных", descr: "—", button: "—" }],
   };
+
+  if (appId) {
+    const url = `https://vk.com/app${appId}`;
+    payload.title_url = url;
+    payload.more = "Открыть дашборд";
+    payload.more_url = url;
+  }
+
   return `return ${JSON.stringify(payload)};`;
 }
 
-function showAdminBar(groupId) {
+function showAdminBar(groupId, appId) {
   if (document.getElementById("widget-admin")) return;
 
   const bar = document.createElement("section");
@@ -55,19 +72,21 @@ function showAdminBar(groupId) {
   bar.className = "panel admin-panel";
   bar.innerHTML = `
     <div class="panel-head">
-      <h2>Виджет на главной группы</h2>
+      <h2>Виджет под шапкой группы</h2>
     </div>
-    <p class="admin-hint">Чтобы статус был виден сразу на странице сообщества — выполните шаги по порядку.</p>
+    <p class="admin-hint">Сделайте по порядку — после шага 2 статус серверов будет виден сразу на главной сообщества.</p>
     <div class="admin-actions">
-      <button type="button" class="admin-btn" data-action="add">1. Добавить в сообщество</button>
-      <button type="button" class="admin-btn" data-action="widget">2. Установить виджет</button>
-      <button type="button" class="admin-btn" data-action="token">3. Получить токен обновления</button>
+      <button type="button" class="admin-btn" data-action="add">1. Добавить плагин в сообщество</button>
+      <button type="button" class="admin-btn admin-btn-main" data-action="widget">2. Установить виджет</button>
+      <button type="button" class="admin-btn" data-action="token">3. Токен для автообновления</button>
     </div>
-    <p class="admin-note" id="admin-note">Группа: ${groupId || "не указана"}</p>
+    <p class="admin-note" id="admin-note">Группа: ${groupId || "—"}${appId ? ` · App: ${appId}` : ""}</p>
   `;
 
   const dash = document.querySelector(".dashboard");
-  dash?.appendChild(bar);
+  const cols = document.querySelector(".cols");
+  if (dash && cols) dash.insertBefore(bar, cols);
+  else dash?.appendChild(bar);
 
   bar.addEventListener("click", async (event) => {
     const btn = event.target.closest("[data-action]");
@@ -76,54 +95,57 @@ function showAdminBar(groupId) {
     const note = document.getElementById("admin-note");
     const b = bridge();
     if (!b) {
-      note.textContent = "Откройте приложение внутри VK, не в обычном браузере.";
+      note.textContent = "Откройте плагин внутри VK из сообщества (не в обычном браузере).";
       return;
     }
 
     try {
       if (action === "add") {
         await b.send("VKWebAppAddToCommunity");
-        note.textContent = "Приложение добавлено в сообщество (или уже было добавлено).";
+        note.textContent = "Готово. Плагин добавлен в сообщество (или уже был).";
       }
 
       if (action === "widget") {
         const gid = Number(groupId);
         if (!gid) {
-          note.textContent = "Нет vk_group_id. Откройте приложение из сообщества.";
+          note.textContent = "Нет vk_group_id. Откройте плагин именно из сообщества.";
           return;
         }
         const servers = await loadStatusServers();
-        const code = buildWidgetCode(servers);
+        const code = buildWidgetCode(servers, appId);
         await b.send("VKWebAppShowCommunityWidgetPreviewBox", {
           group_id: gid,
-          type: "text",
+          type: "compact_list",
           code,
         });
-        note.textContent = "Подтвердите установку виджета в окне VK.";
+        note.textContent = "В окне VK нажмите «Установить» / «Добавить виджет».";
       }
 
       if (action === "token") {
         const gid = Number(groupId);
         if (!gid) {
-          note.textContent = "Нет vk_group_id. Откройте приложение из сообщества.";
+          note.textContent = "Нет vk_group_id. Откройте плагин из сообщества.";
           return;
         }
-        const result = await b.send("VKWebAppGetCommunityToken", {
-          app_id: Number(new URLSearchParams(location.search).get("vk_app_id")) || undefined,
+        const payload = {
           group_id: gid,
           scope: "app_widget",
-        });
+        };
+        if (appId) payload.app_id = Number(appId);
+
+        const result = await b.send("VKWebAppGetCommunityToken", payload);
         const token = result?.access_token || "";
         if (!token) {
-          note.textContent = "Токен не получен. Нужны права админа сообщества.";
+          note.textContent = "Токен не получен. Нужны права админа.";
           return;
         }
+
         note.textContent =
-          "Токен получен. Сохраните его в GitHub → Settings → Secrets → VK_COMMUNITY_TOKEN. Не публикуйте токен.";
+          "Токен получен. Сохраните в .env как VK_COMMUNITY_TOKEN и запускайте start-30s.bat";
         console.log("VK_COMMUNITY_TOKEN:", token);
         try {
           await navigator.clipboard.writeText(token);
-          note.textContent += " Токен скопирован в буфер обмена.";
+          note.textContent += " (скопирован).";
         } catch {
           // ignore
         }
@@ -138,11 +160,12 @@ function initWidgetAdmin() {
   const params = getLaunchParams();
   const role = params.vk_viewer_group_role || "";
   const groupId = params.vk_group_id || "";
+  const appId = params.vk_app_id || "";
   const isAdmin = ["admin", "editor", "moder"].includes(role);
+  const force = params.admin === "1";
 
-  // Показываем админ-панель админам группы; вне VK — короткую подсказку не показываем
-  if (isAdmin && groupId) {
-    showAdminBar(groupId);
+  if ((isAdmin && groupId) || force) {
+    showAdminBar(groupId, appId);
   }
 }
 

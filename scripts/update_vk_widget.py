@@ -1,9 +1,10 @@
 """
-Обновляет виджет сообщества VK из status.json.
+Обновляет виджет сообщества VK из status.json (compact_list).
 
-Нужны переменные окружения:
+Переменные окружения:
   VK_COMMUNITY_TOKEN  — ключ сообщества с правом app_widget
-  VK_API_VERSION      — опционально, по умолчанию 5.199
+  VK_APP_ID           — id приложения (для ссылок в виджете)
+  VK_API_VERSION      — по умолчанию 5.199
 """
 
 from __future__ import annotations
@@ -19,24 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 STATUS_PATH = ROOT / "status.json"
 API = "https://api.vk.ru/method/appWidgets.update"
 
-
-def build_code(servers: list[dict]) -> str:
-    lines = []
-    online = 0
-    for s in servers:
-        is_on = bool(s.get("online"))
-        if is_on:
-            online += 1
-        mark = "Online" if is_on else "Offline"
-        ping = s.get("ping")
-        ping_text = f"{ping} ms" if is_on and ping is not None else "—"
-        lines.append(f"{s.get('name', 'Server')}: {mark} · {ping_text}")
-
-    payload = {
-        "title": f"Серверы · {online}/{len(servers)} online",
-        "text": "\n".join(lines) if lines else "Нет данных",
-    }
-    return "return " + json.dumps(payload, ensure_ascii=False) + ";"
+sys.path.insert(0, str(ROOT / "scripts"))
+from widget_payload import WIDGET_TYPE, build_code  # noqa: E402
 
 
 def update_widget(token: str, code: str, api_version: str) -> dict:
@@ -44,7 +29,7 @@ def update_widget(token: str, code: str, api_version: str) -> dict:
         {
             "access_token": token,
             "v": api_version,
-            "type": "text",
+            "type": WIDGET_TYPE,
             "code": code,
         }
     ).encode("utf-8")
