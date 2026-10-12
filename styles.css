@@ -196,6 +196,11 @@ body {
   min-width: 0;
 }
 
+/* на всякий случай скрываем адреса, если остались в старом кэше */
+.server-addr {
+  display: none !important;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
