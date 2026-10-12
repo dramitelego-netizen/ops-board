@@ -1,10 +1,10 @@
 """
-Обновляет виджет сообщества VK из status.json (compact_list).
+Обновляет виджет сообщества VK (таблица: серверы | события).
 
-Переменные окружения:
-  VK_COMMUNITY_TOKEN  — ключ сообщества с правом app_widget
-  VK_APP_ID           — id приложения (для ссылок в виджете)
-  VK_API_VERSION      — по умолчанию 5.199
+Переменные:
+  VK_COMMUNITY_TOKEN
+  VK_APP_ID
+  VK_API_VERSION (по умолчанию 5.199)
 """
 
 from __future__ import annotations

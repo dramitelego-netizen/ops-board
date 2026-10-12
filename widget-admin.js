@@ -1,5 +1,5 @@
 /**
- * Установка виджета под шапкой группы (compact_list).
+ * Установка компактного виджета: слева серверы, справа события (table).
  */
 
 function getLaunchParams() {
@@ -17,47 +17,69 @@ function bridge() {
   return window.vkBridge || null;
 }
 
-async function loadStatusServers() {
-  try {
-    const res = await fetch(`./status.json?t=${Date.now()}`, { cache: "no-store" });
-    if (!res.ok) throw new Error("status");
-    const data = await res.json();
-    return Array.isArray(data.servers) ? data.servers : [];
-  } catch {
-    return [];
-  }
+async function loadJson(url) {
+  const res = await fetch(`${url}?t=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(url);
+  return res.json();
 }
 
-function buildWidgetCode(servers, appId) {
-  let online = 0;
-  const rows = servers.map((s) => {
-    const isOn = Boolean(s.online);
-    if (isOn) online += 1;
-    const row = {
-      title: String(s.name || "Server"),
-      descr: isOn ? "Online" : "Offline",
-      button: isOn && s.ping != null ? `${s.ping} ms` : "—",
-    };
-    if (appId) {
-      const url = `https://vk.com/app${appId}`;
-      row.title_url = url;
-      row.button_url = url;
+async function loadWidgetData() {
+  let servers = [];
+  let events = [];
+  try {
+    const status = await loadJson("./status.json");
+    servers = Array.isArray(status.servers) ? status.servers : [];
+  } catch {
+    // ignore
+  }
+  try {
+    const data = await loadJson("./events.json");
+    events = Array.isArray(data.events) ? data.events : [];
+  } catch {
+    // ignore
+  }
+  return { servers, events };
+}
+
+function buildWidgetCode(servers, events, appId) {
+  const online = servers.filter((s) => s.online).length;
+  const rows = Math.max(servers.length, events.length, 1);
+  const body = [];
+
+  for (let i = 0; i < rows; i += 1) {
+    const s = servers[i];
+    const e = events[i];
+
+    let left = " ";
+    if (s) {
+      const on = Boolean(s.online);
+      const ping = on && s.ping != null ? String(s.ping) : "—";
+      left = `${s.name} · ${on ? "On" : "Off"} · ${ping}`;
     }
-    return row;
-  });
+
+    let right = " ";
+    if (e) {
+      const when = (e.when || "").trim();
+      const title = (e.title || "").trim();
+      right = when ? `${when} — ${title}` : title || " ";
+    }
+
+    body.push([{ text: left }, { text: right }]);
+  }
 
   const payload = {
-    title: "Игровые серверы",
-    title_counter: online,
-    rows: rows.length
-      ? rows
-      : [{ title: "Нет данных", descr: "—", button: "—" }],
+    title: `OPS · ${online}/${servers.length} online`,
+    head: [
+      { text: "Серверы", align: "left" },
+      { text: "События", align: "left" },
+    ],
+    body,
   };
 
   if (appId) {
     const url = `https://vk.com/app${appId}`;
     payload.title_url = url;
-    payload.more = "Открыть дашборд";
+    payload.more = "Открыть";
     payload.more_url = url;
   }
 
@@ -72,9 +94,9 @@ function showAdminBar(groupId, appId) {
   bar.className = "panel admin-panel";
   bar.innerHTML = `
     <div class="panel-head">
-      <h2>Виджет под шапкой группы</h2>
+      <h2>Виджет: серверы | события</h2>
     </div>
-    <p class="admin-hint">Сделайте по порядку — после шага 2 статус серверов будет виден сразу на главной сообщества.</p>
+    <p class="admin-hint">Компактная таблица под шапкой группы. Слева серверы, справа события.</p>
     <div class="admin-actions">
       <button type="button" class="admin-btn" data-action="add">1. Добавить плагин в сообщество</button>
       <button type="button" class="admin-btn admin-btn-main" data-action="widget">2. Установить виджет</button>
@@ -95,30 +117,30 @@ function showAdminBar(groupId, appId) {
     const note = document.getElementById("admin-note");
     const b = bridge();
     if (!b) {
-      note.textContent = "Откройте плагин внутри VK из сообщества (не в обычном браузере).";
+      note.textContent = "Откройте плагин внутри VK из сообщества.";
       return;
     }
 
     try {
       if (action === "add") {
         await b.send("VKWebAppAddToCommunity");
-        note.textContent = "Готово. Плагин добавлен в сообщество (или уже был).";
+        note.textContent = "Плагин добавлен в сообщество (или уже был).";
       }
 
       if (action === "widget") {
         const gid = Number(groupId);
         if (!gid) {
-          note.textContent = "Нет vk_group_id. Откройте плагин именно из сообщества.";
+          note.textContent = "Нет vk_group_id. Откройте плагин из сообщества.";
           return;
         }
-        const servers = await loadStatusServers();
-        const code = buildWidgetCode(servers, appId);
+        const { servers, events } = await loadWidgetData();
+        const code = buildWidgetCode(servers, events, appId);
         await b.send("VKWebAppShowCommunityWidgetPreviewBox", {
           group_id: gid,
-          type: "compact_list",
+          type: "table",
           code,
         });
-        note.textContent = "В окне VK нажмите «Установить» / «Добавить виджет».";
+        note.textContent = "В окне VK подтвердите установку виджета.";
       }
 
       if (action === "token") {
@@ -127,19 +149,14 @@ function showAdminBar(groupId, appId) {
           note.textContent = "Нет vk_group_id. Откройте плагин из сообщества.";
           return;
         }
-        const payload = {
-          group_id: gid,
-          scope: "app_widget",
-        };
+        const payload = { group_id: gid, scope: "app_widget" };
         if (appId) payload.app_id = Number(appId);
-
         const result = await b.send("VKWebAppGetCommunityToken", payload);
         const token = result?.access_token || "";
         if (!token) {
           note.textContent = "Токен не получен. Нужны права админа.";
           return;
         }
-
         note.textContent =
           "Токен получен. Сохраните в .env как VK_COMMUNITY_TOKEN и запускайте start-30s.bat";
         console.log("VK_COMMUNITY_TOKEN:", token);
