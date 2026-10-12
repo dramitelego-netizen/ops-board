@@ -1,5 +1,5 @@
 {
-  "updatedAt": "23:37:10",
+  "updatedAt": "20:37:20",
   "servers": [
     {
       "id": "list",
@@ -8,7 +8,7 @@
       "port": 4000,
       "color": "slate",
       "online": true,
-      "ping": 10
+      "ping": 129
     },
     {
       "id": "white",
@@ -17,7 +17,7 @@
       "port": 2001,
       "color": "white",
       "online": true,
-      "ping": 23
+      "ping": 124
     },
     {
       "id": "blue",
@@ -26,7 +26,7 @@
       "port": 2001,
       "color": "blue",
       "online": true,
-      "ping": 9
+      "ping": 127
     },
     {
       "id": "green",
@@ -35,7 +35,7 @@
       "port": 2001,
       "color": "green",
       "online": true,
-      "ping": 22
+      "ping": 128
     },
     {
       "id": "red",
@@ -44,7 +44,7 @@
       "port": 2001,
       "color": "red",
       "online": true,
-      "ping": 10
+      "ping": 125
     },
     {
       "id": "yellow",
@@ -53,7 +53,7 @@
       "port": 2001,
       "color": "yellow",
       "online": true,
-      "ping": 11
+      "ping": 128
     }
   ]
 }
