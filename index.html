@@ -14,7 +14,10 @@
       href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=15" />
+    <link rel="stylesheet" href="./styles.css?v=16" />
+    <!-- VK Bridge: без Init мини-приложение в VK не стартует -->
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <script src="./vk-bridge-init.js?v=16"></script>
   </head>
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
@@ -49,6 +52,6 @@
       </div>
     </main>
 
-    <script src="./app.js?v=15" type="module"></script>
+    <script src="./app.js?v=16" type="module"></script>
   </body>
 </html>
