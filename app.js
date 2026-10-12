@@ -52,10 +52,7 @@ function renderServers() {
       (server) => `
       <li class="server-item color-${server.color || "slate"}" data-id="${escapeHtml(server.id)}">
         <span class="dot" aria-hidden="true"></span>
-        <div class="server-main">
-          <h3 class="server-name">${escapeHtml(server.name)}</h3>
-          <p class="server-addr">${escapeHtml(server.ip)}:${escapeHtml(server.port)}</p>
-        </div>
+        <h3 class="server-name">${escapeHtml(server.name)}</h3>
         ${statusBadge(Boolean(server.online))}
         <div class="stat" data-metric="ping">
           <span class="stat-label">Пинг</span>

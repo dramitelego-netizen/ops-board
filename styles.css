@@ -185,10 +185,6 @@ body {
 .color-yellow .dot { background: #eab308; }
 .color-slate .dot { background: #475569; }
 
-.server-main {
-  min-width: 0;
-}
-
 .server-name {
   margin: 0;
   font-family: "Chakra Petch", sans-serif;
@@ -197,16 +193,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.server-addr {
-  margin: 1px 0 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
 }
 
 .badge {
@@ -307,10 +294,6 @@ body {
 @media (max-width: 719px) {
   .cols {
     grid-template-rows: 1.35fr 1fr;
-  }
-
-  .server-addr {
-    display: none;
   }
 
   .server-item {
