@@ -428,9 +428,40 @@ body {
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-@keyframes strip-pulse {
-  0%, 100% { opacity: 0.8; filter: brightness(1); }
-  50% { opacity: 1; filter: brightness(1.25); }
+.admin-panel {
+  flex-shrink: 0;
+}
+
+.admin-hint,
+.admin-note {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.admin-actions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.admin-btn {
+  appearance: none;
+  border: 1px solid rgba(160, 190, 220, 0.22);
+  background: rgba(28, 40, 58, 0.95);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-btn:hover {
+  border-color: rgba(180, 210, 240, 0.4);
 }
 
 /* ===== Телефон: сверху мониторинг, снизу события ===== */

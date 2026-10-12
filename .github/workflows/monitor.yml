@@ -38,3 +38,10 @@ jobs:
             git commit -m "chore: update server status"
             git push
           fi
+
+      - name: Update VK community widget
+        if: ${{ secrets.VK_COMMUNITY_TOKEN != '' }}
+        env:
+          VK_COMMUNITY_TOKEN: ${{ secrets.VK_COMMUNITY_TOKEN }}
+        run: python scripts/update_vk_widget.py
+
