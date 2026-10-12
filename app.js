@@ -15,9 +15,13 @@ const fallbackServers = [
 ];
 
 const fallbackEvents = [
-  { id: "e1", title: "Ночной вайп", when: "Сегодня · 23:00", place: "Все серверы", text: "" },
-  { id: "e2", title: "Турнир PvP", when: "Завтра · 19:00", place: "Красный", text: "" },
-  { id: "e3", title: "Ивент на босса", when: "Сб · 17:00", place: "Синий", text: "" },
+  {
+    id: "e1",
+    title: "Пока на проверке",
+    when: "Скоро",
+    place: "Раздел событий",
+    text: "События временно скрыты. Скоро здесь появится актуальная информация.",
+  },
 ];
 
 const serverList = document.getElementById("server-list");
