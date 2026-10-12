@@ -1,7 +1,7 @@
 /**
  * Дашборд: мониторинг слева, события справа.
- * 1) пробует живой API (monitor.py)
- * 2) иначе берёт status.json (GitHub Actions)
+ * Серверы: API / status.json
+ * События: events.json (позже можно подтягивать из VK)
  */
 
 const REFRESH_MS = 15000;
@@ -15,10 +15,10 @@ const fallbackServers = [
   { id: "yellow", name: "Жёлтый", ip: "195.211.128.131", port: 2001, color: "yellow", online: false, ping: null },
 ];
 
-const events = [
-  { id: "e1", title: "Ночной вайп", when: "Сегодня · 23:00", place: "Все серверы" },
-  { id: "e2", title: "Турнир PvP", when: "Завтра · 19:00", place: "Красный" },
-  { id: "e3", title: "Ивент на босса", when: "Сб · 17:00", place: "Синий" },
+const fallbackEvents = [
+  { id: "e1", title: "Ночной вайп", when: "Сегодня · 23:00", place: "Все серверы", text: "" },
+  { id: "e2", title: "Турнир PvP", when: "Завтра · 19:00", place: "Красный", text: "" },
+  { id: "e3", title: "Ивент на босса", when: "Сб · 17:00", place: "Синий", text: "" },
 ];
 
 const serverList = document.getElementById("server-list");
@@ -27,6 +27,15 @@ const lastUpdate = document.getElementById("last-update");
 const serversSummary = document.getElementById("servers-summary");
 
 let servers = fallbackServers.map((s) => ({ ...s }));
+let events = fallbackEvents.map((e) => ({ ...e }));
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
 
 function statusBadge(online) {
   return online
@@ -41,11 +50,11 @@ function renderServers() {
   serverList.innerHTML = servers
     .map(
       (server) => `
-      <li class="server-item color-${server.color || "slate"}" data-id="${server.id}">
+      <li class="server-item color-${server.color || "slate"}" data-id="${escapeHtml(server.id)}">
         <span class="dot" aria-hidden="true"></span>
         <div class="server-main">
-          <h3 class="server-name">${server.name}</h3>
-          <p class="server-addr">${server.ip}:${server.port}</p>
+          <h3 class="server-name">${escapeHtml(server.name)}</h3>
+          <p class="server-addr">${escapeHtml(server.ip)}:${escapeHtml(server.port)}</p>
         </div>
         ${statusBadge(Boolean(server.online))}
         <div class="stat" data-metric="ping">
@@ -63,9 +72,14 @@ function renderEvents() {
     .map(
       (event) => `
       <li class="event-item">
-        <p class="event-when">${event.when}</p>
-        <h3 class="event-title">${event.title}</h3>
-        <p class="event-place">${event.place}</p>
+        <p class="event-when">${escapeHtml(event.when)}</p>
+        <h3 class="event-title">${escapeHtml(event.title)}</h3>
+        <p class="event-place">${escapeHtml(event.place || "")}</p>
+        ${
+          event.text
+            ? `<p class="event-text">${escapeHtml(event.text)}</p>`
+            : ""
+        }
       </li>
     `
     )
@@ -104,11 +118,7 @@ async function loadJson(url) {
 }
 
 async function fetchStatus() {
-  const sources = [
-    "./api/status",
-    "/api/status",
-    "./status.json",
-  ];
+  const sources = ["./api/status", "/api/status", "./status.json"];
 
   for (const url of sources) {
     try {
@@ -117,7 +127,7 @@ async function fetchStatus() {
       applyStatus(data.servers, data.updatedAt);
       return;
     } catch {
-      // пробуем следующий источник
+      // next source
     }
   }
 
@@ -125,11 +135,25 @@ async function fetchStatus() {
   lastUpdate.textContent = "нет связи";
 }
 
+async function fetchEvents() {
+  try {
+    const data = await loadJson("./events.json");
+    if (data && Array.isArray(data.events)) {
+      events = data.events;
+      renderEvents();
+    }
+  } catch {
+    renderEvents();
+  }
+}
+
 function init() {
   renderServers();
   renderEvents();
+  fetchEvents();
   fetchStatus();
   setInterval(fetchStatus, REFRESH_MS);
+  setInterval(fetchEvents, 60000);
 }
 
 init();
