@@ -1,0 +1,10 @@
+{
+  "servers": [
+    { "id": "list", "name": "Server list", "ip": "195.211.128.131", "port": 4000, "color": "slate" },
+    { "id": "white", "name": "Белый", "ip": "195.211.128.130", "port": 2001, "color": "white" },
+    { "id": "blue", "name": "Синий", "ip": "195.211.128.136", "port": 2001, "color": "blue" },
+    { "id": "green", "name": "Зелёный", "ip": "195.211.128.133", "port": 2001, "color": "green" },
+    { "id": "red", "name": "Красный", "ip": "195.211.128.132", "port": 2001, "color": "red" },
+    { "id": "yellow", "name": "Жёлтый", "ip": "195.211.128.131", "port": 2001, "color": "yellow" }
+  ]
+}

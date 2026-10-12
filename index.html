@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Серверы — дашборд</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=5" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+
+    <main class="dashboard">
+      <header class="top">
+        <div class="top-left">
+          <h1>OPS Board</h1>
+          <p class="summary" id="servers-summary">загрузка…</p>
+        </div>
+        <div class="live-bar">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>Live</span>
+          <time id="last-update">—</time>
+        </div>
+      </header>
+
+      <div class="cols">
+        <section class="panel panel-servers" aria-label="Мониторинг">
+          <div class="panel-head">
+            <h2>Мониторинг</h2>
+          </div>
+          <ul class="server-list" id="server-list"></ul>
+        </section>
+
+        <section class="panel panel-events" aria-label="События">
+          <div class="panel-head">
+            <h2>События</h2>
+          </div>
+          <ul class="event-list" id="event-list"></ul>
+        </section>
+      </div>
+    </main>
+
+    <script src="./app.js?v=5" type="module"></script>
+  </body>
+</html>
