@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>FUTURUM · Cube</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=24" />
+    <link rel="stylesheet" href="./game.css?v=24" />
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <script src="./vk-bridge-init.js?v=24"></script>
+  </head>
+  <body class="game-body">
+    <div class="atmosphere" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <main class="game-shell">
+      <header class="game-top">
+        <a class="game-back" href="./index.html">← FUTURUM</a>
+        <div class="game-stats">
+          <span id="layer-label">Слой 1 / 4</span>
+          <span id="hp-label">HP 12</span>
+        </div>
+      </header>
+
+      <p class="game-hint" id="game-hint">Крутите куб · кликайте, чтобы разбить слои</p>
+
+      <div class="stage" id="stage">
+        <div class="scene" id="scene">
+          <div class="world" id="world">
+            <div class="cube-stack" id="cube-stack"></div>
+            <div class="chest" id="chest" hidden aria-hidden="true">
+              <div class="chest-lid"></div>
+              <div class="chest-body"></div>
+              <div class="chest-glow"></div>
+              <p class="chest-label">Приз</p>
+            </div>
+          </div>
+        </div>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+      </div>
+
+      <div class="win-banner" id="win-banner" hidden>
+        <p class="win-title">Сундук открыт</p>
+        <p class="win-sub">Слои разбиты. Можно начать заново.</p>
+        <button type="button" class="win-btn" id="replay-btn">Ещё раз</button>
+      </div>
+    </main>
+
+    <script src="./game.js?v=24"></script>
+  </body>
+</html>
