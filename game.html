@@ -14,10 +14,17 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=24" />
-    <link rel="stylesheet" href="./game.css?v=24" />
+    <link rel="stylesheet" href="./styles.css?v=25" />
+    <link rel="stylesheet" href="./game.css?v=25" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=24"></script>
+    <script src="./vk-bridge-init.js?v=25"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
   </head>
   <body class="game-body">
     <div class="atmosphere" aria-hidden="true"></div>
@@ -28,25 +35,18 @@
         <a class="game-back" href="/ops-board/">← FUTURUM</a>
         <div class="game-stats">
           <span id="layer-label">Слой 1 / 4</span>
-          <span id="hp-label">HP 12</span>
+          <div class="hp-wrap" aria-label="Прочность">
+            <div class="hp-bar"><i id="hp-fill"></i></div>
+            <span id="hp-label">HP 10</span>
+          </div>
         </div>
       </header>
 
       <p class="game-hint" id="game-hint">Крутите куб · кликайте, чтобы разбить слои</p>
 
       <div class="stage" id="stage">
-        <div class="scene" id="scene">
-          <div class="world" id="world">
-            <div class="cube-stack" id="cube-stack"></div>
-            <div class="chest" id="chest" hidden aria-hidden="true">
-              <div class="chest-lid"></div>
-              <div class="chest-body"></div>
-              <div class="chest-glow"></div>
-              <p class="chest-label">Приз</p>
-            </div>
-          </div>
-        </div>
-        <div class="fx" id="fx" aria-hidden="true"></div>
+        <canvas id="game-canvas"></canvas>
+        <div class="click-ring" id="click-ring" aria-hidden="true"></div>
       </div>
 
       <div class="win-banner" id="win-banner" hidden>
@@ -56,6 +56,6 @@
       </div>
     </main>
 
-    <script src="./game.js?v=24"></script>
+    <script type="module" src="./game.js?v=25"></script>
   </body>
 </html>
