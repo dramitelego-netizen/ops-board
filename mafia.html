@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>FUTURUM · Мафия</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=26" />
+    <link rel="stylesheet" href="./mafia.css?v=26" />
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <script src="./vk-bridge-init.js?v=26"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  </head>
+  <body class="mafia-body">
+    <div class="atmosphere mafia-atmosphere" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <main class="mafia-shell">
+      <header class="mafia-top">
+        <a class="game-back" href="/ops-board/">← FUTURUM</a>
+        <div class="mafia-room-badge" id="room-badge" hidden>
+          <span>Комната</span>
+          <strong id="room-code-view">————</strong>
+        </div>
+      </header>
+
+      <!-- HOME -->
+      <section class="screen" id="screen-home">
+        <p class="mafia-kicker">ночной город</p>
+        <h1 class="mafia-title">МАФИЯ</h1>
+        <p class="mafia-lead">
+          4–10 игроков · роли тайные · ночь и день · голосование
+        </p>
+
+        <label class="field">
+          <span>Ваше имя</span>
+          <input id="name-input" maxlength="16" placeholder="Например, Алекс" autocomplete="nickname" />
+        </label>
+
+        <div class="home-actions">
+          <button type="button" class="btn btn-primary" id="btn-create">Создать комнату</button>
+          <div class="join-row">
+            <input id="join-code" maxlength="5" placeholder="КОД" autocomplete="off" />
+            <button type="button" class="btn btn-ghost" id="btn-join">Войти</button>
+          </div>
+        </div>
+
+        <details class="rules">
+          <summary>Как играть</summary>
+          <ul>
+            <li>Хост создаёт комнату и ждёт игроков (минимум 4).</li>
+            <li>Роли: мафия, комиссар, доктор, мирные.</li>
+            <li>Ночь: мафия убивает, доктор лечит, комиссар проверяет.</li>
+            <li>День: обсуждение и голосование за изгнание.</li>
+            <li>Мирные побеждают, если вся мафия изгнана. Мафия — если их не меньше, чем мирных.</li>
+          </ul>
+        </details>
+      </section>
+
+      <!-- LOBBY -->
+      <section class="screen" id="screen-lobby" hidden>
+        <p class="mafia-kicker">лобби</p>
+        <h2 class="screen-title">Ждём игроков</h2>
+        <p class="lobby-count"><span id="lobby-n">1</span> / 10 · нужно от 4</p>
+        <ul class="player-grid" id="lobby-list"></ul>
+        <p class="lobby-hint" id="lobby-hint">Поделитесь кодом комнаты</p>
+        <button type="button" class="btn btn-primary" id="btn-start" hidden>Начать игру</button>
+        <button type="button" class="btn btn-ghost" id="btn-copy">Скопировать код</button>
+      </section>
+
+      <!-- ROLE -->
+      <section class="screen" id="screen-role" hidden>
+        <p class="mafia-kicker">ваша роль</p>
+        <div class="role-card" id="role-card">
+          <p class="role-name" id="role-name">—</p>
+          <p class="role-desc" id="role-desc"></p>
+        </div>
+        <p class="phase-timer" id="role-timer">5</p>
+      </section>
+
+      <!-- NIGHT -->
+      <section class="screen" id="screen-night" hidden>
+        <p class="mafia-kicker night-glow">ночь</p>
+        <h2 class="screen-title" id="night-title">Город засыпает</h2>
+        <p class="night-sub" id="night-sub">Выберите цель</p>
+        <ul class="player-grid pickable" id="night-list"></ul>
+        <p class="phase-timer" id="night-timer">25</p>
+      </section>
+
+      <!-- DAY -->
+      <section class="screen" id="screen-day" hidden>
+        <p class="mafia-kicker day-glow">день</p>
+        <h2 class="screen-title">Город просыпается</h2>
+        <div class="event-card" id="day-event"></div>
+        <ul class="player-grid" id="day-list"></ul>
+        <p class="phase-timer" id="day-timer">20</p>
+        <p class="lobby-hint">Обсудите, кто мафия. Скоро голосование.</p>
+      </section>
+
+      <!-- VOTE -->
+      <section class="screen" id="screen-vote" hidden>
+        <p class="mafia-kicker">голосование</p>
+        <h2 class="screen-title">Кого изгнать?</h2>
+        <ul class="player-grid pickable" id="vote-list"></ul>
+        <p class="phase-timer" id="vote-timer">25</p>
+      </section>
+
+      <!-- RESOLVE / END -->
+      <section class="screen" id="screen-result" hidden>
+        <p class="mafia-kicker" id="result-kicker">итог</p>
+        <h2 class="screen-title" id="result-title">—</h2>
+        <p class="result-text" id="result-text"></p>
+        <ul class="player-grid" id="result-list"></ul>
+        <button type="button" class="btn btn-primary" id="btn-again" hidden>В лобби</button>
+      </section>
+
+      <p class="mafia-status" id="status-line"></p>
+    </main>
+
+    <script src="./mafia.js?v=26"></script>
+  </body>
+</html>
