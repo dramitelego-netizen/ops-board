@@ -14,9 +14,9 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=21" />
+    <link rel="stylesheet" href="./styles.css?v=22" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=21"></script>
+    <script src="./vk-bridge-init.js?v=22"></script>
   </head>
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
@@ -36,6 +36,7 @@
         <p class="brand-tag">network status</p>
         <h1 class="glitch" data-text="FUTURUM">FUTURUM</h1>
         <p class="brand-line">servers · events · realtime</p>
+        <div class="user-chip" id="user-chip" hidden></div>
       </section>
 
       <div class="cols">
@@ -53,9 +54,18 @@
           <ul class="event-list" id="event-list"></ul>
         </section>
       </div>
+
+      <section class="panel visits-panel" id="visits-panel" hidden aria-label="Заходы">
+        <div class="panel-head">
+          <h2>Кто заходил</h2>
+        </div>
+        <p class="visits-hint">Пока журнал на этом устройстве. Общий лог для всех админов — после подключения бэкенда.</p>
+        <ul class="visits-list" id="visits-list"></ul>
+      </section>
     </main>
 
-    <script src="./app.js?v=21" type="module"></script>
-    <script src="./widget-admin.js?v=21"></script>
+    <script src="./app.js?v=22" type="module"></script>
+    <script src="./vk-user.js?v=22"></script>
+    <script src="./widget-admin.js?v=22"></script>
   </body>
 </html>

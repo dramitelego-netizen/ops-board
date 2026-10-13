@@ -141,6 +141,89 @@ body {
   opacity: 0.75;
 }
 
+.user-chip {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(100%, 360px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(16, 24, 36, 0.88);
+  border: 1px solid rgba(103, 232, 249, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(148, 178, 210, 0.2);
+  flex-shrink: 0;
+}
+
+.user-meta {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.user-meta strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-meta span {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.visits-panel {
+  flex-shrink: 0;
+  max-height: 28%;
+}
+
+.visits-hint {
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.visits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.visit-item {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--paper-strong);
+  border: 1px solid var(--line);
+}
+
+.visit-item strong {
+  font-size: 0.8rem;
+}
+
+.visit-item span {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
 .glitch {
   position: relative;
   margin: 0;
