@@ -98,6 +98,21 @@ body {
   overflow: hidden;
 }
 
+.dashboard-minimal {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.dashboard-minimal .brand {
+  margin: 0;
+}
+
+.dashboard-minimal .visits-panel {
+  width: min(100%, 420px);
+  max-height: 36%;
+}
+
 .top {
   display: flex;
   align-items: center;
