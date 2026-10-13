@@ -7,27 +7,24 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>Серверы — дашборд</title>
+    <title>FUTURUM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20" />
-    <!-- VK Bridge: без Init мини-приложение в VK не стартует -->
+    <link rel="stylesheet" href="./styles.css?v=21" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=20"></script>
+    <script src="./vk-bridge-init.js?v=21"></script>
   </head>
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
 
     <main class="dashboard">
       <header class="top">
-        <div class="top-left">
-          <h1>OPS Board</h1>
-          <p class="summary" id="servers-summary">загрузка…</p>
-        </div>
+        <p class="summary" id="servers-summary">загрузка…</p>
         <div class="live-bar">
           <span class="live-dot" aria-hidden="true"></span>
           <span>Live</span>
@@ -35,10 +32,16 @@
         </div>
       </header>
 
+      <section class="brand" aria-label="FUTURUM">
+        <p class="brand-tag">network status</p>
+        <h1 class="glitch" data-text="FUTURUM">FUTURUM</h1>
+        <p class="brand-line">servers · events · realtime</p>
+      </section>
+
       <div class="cols">
         <section class="panel panel-servers" aria-label="Мониторинг">
           <div class="panel-head">
-            <h2>Мониторинг</h2>
+            <h2>Серверы</h2>
           </div>
           <ul class="server-list" id="server-list"></ul>
         </section>
@@ -52,7 +55,7 @@
       </div>
     </main>
 
-    <script src="./app.js?v=20" type="module"></script>
-    <script src="./widget-admin.js?v=20"></script>
+    <script src="./app.js?v=21" type="module"></script>
+    <script src="./widget-admin.js?v=21"></script>
   </body>
 </html>

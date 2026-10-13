@@ -1,18 +1,20 @@
 :root {
-  --ink: #e8eef6;
-  --ink-soft: #93a4b8;
-  --paper: rgba(18, 28, 42, 0.78);
-  --paper-strong: rgba(24, 36, 52, 0.92);
-  --line: rgba(148, 178, 210, 0.14);
+  --ink: #eef3f8;
+  --ink-soft: #8fa3b8;
+  --paper: rgba(12, 18, 28, 0.72);
+  --paper-strong: rgba(16, 24, 36, 0.9);
+  --line: rgba(120, 200, 220, 0.14);
   --teal: #2dd4bf;
   --teal-soft: rgba(45, 212, 191, 0.16);
   --coral: #fb7185;
   --coral-soft: rgba(251, 113, 133, 0.16);
-  --sky: #7dd3fc;
+  --sky: #67e8f9;
+  --glitch-a: #22d3ee;
+  --glitch-b: #f97316;
   --pad: 10px;
   font-family: "Manrope", system-ui, sans-serif;
   color: var(--ink);
-  background: #070b12;
+  background: #05080e;
   color-scheme: dark;
 }
 
@@ -40,32 +42,47 @@ body {
 .atmosphere {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
   background:
-    radial-gradient(ellipse 70% 50% at 15% -10%, rgba(34, 120, 160, 0.28), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 90% 10%, rgba(180, 90, 40, 0.16), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 50% 110%, rgba(20, 90, 100, 0.18), transparent 55%),
-    linear-gradient(165deg, #0a1018 0%, #0d1520 45%, #111a28 100%);
+    radial-gradient(ellipse 55% 40% at 50% 18%, rgba(34, 211, 238, 0.14), transparent 60%),
+    radial-gradient(ellipse 40% 35% at 12% 80%, rgba(249, 115, 22, 0.1), transparent 55%),
+    radial-gradient(ellipse 45% 30% at 90% 70%, rgba(45, 212, 191, 0.08), transparent 50%),
+    linear-gradient(180deg, #060a12 0%, #0a101a 50%, #05080e 100%);
 }
 
 .atmosphere::before {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.35;
+  opacity: 0.4;
   background-image:
-    linear-gradient(rgba(148, 178, 210, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 178, 210, 0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse at center, black 20%, transparent 78%);
+    linear-gradient(rgba(103, 232, 249, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 15%, transparent 72%);
 }
 
 .atmosphere::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 0%, transparent 40%, rgba(0, 0, 0, 0.35) 100%);
+  background: radial-gradient(circle at 50% 40%, transparent 30%, rgba(0, 0, 0, 0.55) 100%);
   pointer-events: none;
+}
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.07;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.45) 3px,
+    transparent 4px
+  );
 }
 
 .dashboard {
@@ -77,7 +94,7 @@ body {
   padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -90,24 +107,77 @@ body {
   flex-shrink: 0;
 }
 
-.top-left {
-  min-width: 0;
-}
-
-.top h1 {
-  margin: 0;
-  font-family: "Chakra Petch", sans-serif;
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
 .summary {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--ink-soft);
+}
+
+.brand {
+  flex-shrink: 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 4px 0 2px;
+  text-align: center;
+}
+
+.brand-tag,
+.brand-line {
+  margin: 0;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.brand-line {
+  letter-spacing: 0.18em;
+  opacity: 0.75;
+}
+
+.glitch {
+  position: relative;
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(2rem, 9vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: #f4fbff;
+  text-shadow:
+    0 0 18px rgba(34, 211, 238, 0.35),
+    0 0 40px rgba(34, 211, 238, 0.12);
+  animation: glitch-skew 4s infinite linear alternate-reverse;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+}
+
+.glitch::before {
+  left: 2px;
+  color: var(--glitch-a);
+  text-shadow: -2px 0 var(--glitch-b);
+  animation: glitch-top 2.8s infinite linear alternate-reverse;
+}
+
+.glitch::after {
+  left: -2px;
+  color: var(--glitch-b);
+  text-shadow: 2px 0 var(--glitch-a);
+  animation: glitch-bottom 2.2s infinite linear alternate-reverse;
 }
 
 .live-bar {
@@ -422,6 +492,35 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(15, 118, 110, 0); }
 }
 
+@keyframes glitch-top {
+  0% { clip-path: inset(0 0 85% 0); transform: translate(0); }
+  10% { clip-path: inset(10% 0 70% 0); transform: translate(-3px, -1px); }
+  20% { clip-path: inset(40% 0 30% 0); transform: translate(3px, 1px); }
+  35% { clip-path: inset(5% 0 80% 0); transform: translate(-2px, 0); }
+  50% { clip-path: inset(60% 0 15% 0); transform: translate(2px, -1px); }
+  70% { clip-path: inset(20% 0 55% 0); transform: translate(-3px, 1px); }
+  100% { clip-path: inset(0 0 85% 0); transform: translate(0); }
+}
+
+@keyframes glitch-bottom {
+  0% { clip-path: inset(85% 0 0 0); transform: translate(0); }
+  12% { clip-path: inset(70% 0 5% 0); transform: translate(3px, 1px); }
+  28% { clip-path: inset(35% 0 40% 0); transform: translate(-3px, -1px); }
+  45% { clip-path: inset(80% 0 2% 0); transform: translate(2px, 0); }
+  62% { clip-path: inset(15% 0 60% 0); transform: translate(-2px, 1px); }
+  80% { clip-path: inset(55% 0 20% 0); transform: translate(3px, -1px); }
+  100% { clip-path: inset(85% 0 0 0); transform: translate(0); }
+}
+
+@keyframes glitch-skew {
+  0% { transform: skew(0deg); }
+  20% { transform: skew(0.4deg); }
+  40% { transform: skew(-0.3deg); }
+  60% { transform: skew(0.2deg); }
+  80% { transform: skew(-0.4deg); }
+  100% { transform: skew(0deg); }
+}
+
 @keyframes pulse-dot {
   0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55); }
   70% { box-shadow: 0 0 0 8px transparent; }
@@ -480,20 +579,24 @@ body {
     align-items: center;
   }
 
-  .top-left {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .top h1 {
-    font-size: 1.1rem;
-    line-height: 1.15;
-  }
-
   .summary {
-    margin-top: 3px;
     line-height: 1.2;
+  }
+
+  .glitch {
+    font-size: clamp(1.7rem, 11vw, 2.4rem);
+    letter-spacing: 0.1em;
+  }
+
+  .brand {
+    gap: 4px;
+    padding: 2px 0;
+  }
+
+  .brand-tag,
+  .brand-line {
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
   }
 
   .server-item {
@@ -586,12 +689,16 @@ body {
     gap: 12px;
   }
 
-  .top h1 {
-    font-size: 1.4rem;
+  .summary {
+    font-size: 0.78rem;
   }
 
-  .summary {
-    font-size: 0.8rem;
+  .brand {
+    padding: 8px 0 4px;
+  }
+
+  .glitch {
+    font-size: clamp(2.6rem, 5vw, 4rem);
   }
 
   .cols {
