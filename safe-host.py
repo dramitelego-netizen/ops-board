@@ -118,7 +118,10 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Bypass-Tunnel-Reminder, ngrok-skip-browser-warning",
+        )
         self.send_header("Cache-Control", "no-store")
 
     def _json(self, code: int, payload: dict) -> None:
