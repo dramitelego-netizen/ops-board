@@ -14,9 +14,10 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=34" />
+    <link rel="stylesheet" href="./styles.css?v=35" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=34"></script>
+    <script src="./vk-bridge-init.js?v=35"></script>
+    <script src="./vk-nav.js?v=1"></script>
   </head>
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
@@ -29,8 +30,9 @@
         <p class="brand-line">welcome</p>
         <div class="user-chip" id="user-chip" hidden></div>
         <div class="game-links">
-          <a class="game-link" href="./arena.html">Tower</a>
-          <a class="game-link" href="./safe.html">Сейф</a>
+          <!-- button, не <a>: в VK на телефоне <a> уводит в системный браузер -->
+          <button type="button" class="game-link" data-vk-nav="./arena.html">Tower</button>
+          <button type="button" class="game-link" data-vk-nav="./safe.html">Сейф</button>
         </div>
       </section>
 
@@ -43,7 +45,7 @@
       </section>
     </main>
 
-    <script src="./vk-user.js?v=34"></script>
-    <script src="./widget-admin.js?v=34"></script>
+    <script src="./vk-user.js?v=35"></script>
+    <script src="./widget-admin.js?v=35"></script>
   </body>
 </html>

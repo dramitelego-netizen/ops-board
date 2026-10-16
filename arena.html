@@ -14,18 +14,19 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=33" />
-    <link rel="stylesheet" href="./arena.css?v=33" />
+    <link rel="stylesheet" href="./styles.css?v=39" />
+    <link rel="stylesheet" href="./arena.css?v=39" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=33"></script>
+    <script src="./vk-bridge-init.js?v=39"></script>
+    <script src="./vk-nav.js?v=1"></script>
   </head>
   <body class="arena-body">
     <div id="boot" class="boot">
-      <a class="boot-back" href="/ops-board/">← FUTURUM</a>
+      <button type="button" class="boot-back" data-vk-nav="./index.html">← FUTURUM</button>
       <p class="boot-kicker">circular tower</p>
       <h1 class="boot-title">TOWER</h1>
       <p class="boot-lead">
-        20 круглых этажей · сундуки · зачары · босс у двери — без победы дальше не пройти
+        Начинаете с палки · находите оружие в сундуках · лишнее летает рядом и бьёт само
       </p>
       <label class="boot-name">
         <span>Имя героя</span>
@@ -33,20 +34,21 @@
       </label>
       <button type="button" class="boot-btn" id="btn-start">В башню</button>
       <p class="boot-help">
-        <strong>WASD</strong> ходьба · <strong>мышь</strong> прицел · <strong>ЛКМ</strong> атака · <strong>Пробел</strong> прыжок<br />
+        <strong>WASD</strong> (любая раскладка) · <strong>мышь</strong> прицел · <strong>ЛКМ</strong> атака · <strong>Пробел</strong> прыжок<br />
         <strong>Q/E</strong> оружие · <strong>F</strong> сундук/дверь · <strong>B</strong> лавка · <strong>2–4</strong> скиллы
       </p>
     </div>
 
     <div id="hud" class="hud" hidden>
       <div class="hud-top">
-        <a class="hud-back" href="/ops-board/">←</a>
+        <button type="button" class="hud-back" data-vk-nav="./index.html">←</button>
         <div class="hud-stat">
           <span>HP</span>
           <div class="bar"><i id="hp-bar"></i></div>
         </div>
         <div class="hud-chip" id="floor-chip">Этаж 0/20</div>
         <div class="hud-chip" id="gold-chip">◆ 0</div>
+        <div class="hud-chip combo-chip" id="combo-chip" hidden>x2</div>
         <div class="hud-chip" id="enchant-chip">без чар</div>
         <button type="button" class="hud-shop-btn" id="btn-shop">Лавка</button>
       </div>
@@ -54,6 +56,7 @@
         <strong id="weapon-name">Клинок</strong>
         <span id="weapon-meta">slash</span>
       </div>
+      <div class="floor-big" id="floor-big" hidden data-sub="из 20">ЭТАЖ 1</div>
       <div class="door-status" id="door-status">убейте босса этажа</div>
       <div class="safe-banner" id="safe-banner" hidden>лагерь · выберите оружие · войдите в портал</div>
       <div class="weapon-rack" id="weapon-rack" hidden></div>
@@ -105,6 +108,6 @@
       </div>
     </div>
 
-    <script src="./arena.js?v=34"></script>
+    <script src="./arena.js?v=38"></script>
   </body>
 </html>
