@@ -1,0 +1,461 @@
+.arena-body {
+  margin: 0;
+  overflow: hidden;
+  background: #05080e;
+  touch-action: none;
+  user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  background: #0a1018;
+}
+
+.boot,
+.dead {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 20%, rgba(34, 211, 238, 0.14), transparent 55%),
+    rgba(5, 8, 14, 0.94);
+}
+
+.boot-back,
+.hud-back {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  color: var(--sky, #67e8f9);
+  text-decoration: none;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
+.boot-kicker {
+  margin: 0;
+  font-family: "Chakra Petch", sans-serif;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #8fa3b8;
+  font-size: 0.72rem;
+}
+
+.boot-title {
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(2.4rem, 12vw, 3.8rem);
+  letter-spacing: 0.16em;
+  background: linear-gradient(180deg, #fff, #67e8f9 55%, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.boot-lead,
+.boot-help {
+  margin: 0;
+  max-width: 28rem;
+  color: #8fa3b8;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.boot-help {
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
+.boot-name {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 280px);
+  text-align: left;
+}
+
+.boot-name span {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fa3b8;
+}
+
+.boot-name input {
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  background: rgba(10, 16, 26, 0.9);
+  color: #eef3f8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.boot-btn {
+  appearance: none;
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(45, 212, 191, 0.18));
+  color: #eef3f8;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 14px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-top {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.hud-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  color: #8fa3b8;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: "Chakra Petch", sans-serif;
+}
+
+.bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #fb7185, #ef4444);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.hud-chip,
+.hud-shop-btn {
+  pointer-events: auto;
+  border: 1px solid rgba(120, 200, 220, 0.2);
+  background: rgba(10, 16, 26, 0.88);
+  color: #eef3f8;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.hud-shop-btn {
+  cursor: pointer;
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.hud-weapon {
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(10, 16, 26, 0.88);
+  border: 1px solid rgba(103, 232, 249, 0.2);
+  font-size: 0.72rem;
+  color: #8fa3b8;
+}
+
+.hud-weapon strong {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.85rem;
+  color: #eef3f8;
+  letter-spacing: 0.06em;
+}
+
+.abilities {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.ability {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  background: rgba(10, 16, 26, 0.88);
+  color: #eef3f8;
+  font-size: 0.65rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  line-height: 1.1;
+  position: relative;
+  overflow: hidden;
+}
+
+.ability.is-cd::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.minimap-wrap {
+  position: absolute;
+  top: 54px;
+  right: 12px;
+  width: 120px;
+  height: 120px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  background: rgba(5, 8, 14, 0.75);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 16, 26, 0.9);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fde68a;
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.hud-toast.is-on {
+  opacity: 1;
+}
+
+.hud-coords {
+  position: absolute;
+  left: 12px;
+  top: 54px;
+  margin: 0;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: #8fa3b8;
+}
+
+.shop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 16px;
+}
+
+.shop[hidden],
+.boot[hidden],
+.dead[hidden],
+.hud[hidden],
+.touch[hidden] {
+  display: none !important;
+}
+
+.shop-panel {
+  width: min(100%, 420px);
+  max-height: min(80dvh, 560px);
+  overflow: auto;
+  border-radius: 18px;
+  background: rgba(12, 18, 28, 0.96);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  padding: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.shop-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shop-panel h2 {
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shop-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #8fa3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.shop-scrap {
+  margin: 8px 0 12px;
+  color: #8fa3b8;
+  font-size: 0.85rem;
+}
+
+.shop-scrap strong {
+  color: #fde68a;
+}
+
+.shop-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tab {
+  flex: 1;
+  appearance: none;
+  border: 1px solid rgba(120, 200, 220, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #8fa3b8;
+  border-radius: 999px;
+  padding: 8px;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tab.is-on {
+  color: #eef3f8;
+  border-color: rgba(103, 232, 249, 0.4);
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.shop-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid rgba(120, 200, 220, 0.1);
+  text-align: left;
+}
+
+.shop-item h3 {
+  margin: 0 0 2px;
+  font-size: 0.9rem;
+}
+
+.shop-item p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #8fa3b8;
+}
+
+.shop-buy {
+  appearance: none;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.12);
+  color: #fde68a;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shop-buy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.touch {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.stick {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: auto;
+}
+
+.stick i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: rgba(103, 232, 249, 0.45);
+}
+
+.fire-btn {
+  position: absolute;
+  right: 28px;
+  bottom: 36px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 1px solid rgba(251, 113, 133, 0.45);
+  background: rgba(239, 68, 68, 0.35);
+  font-size: 1.4rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+@media (pointer: fine) {
+  .touch {
+    display: none !important;
+  }
+}
