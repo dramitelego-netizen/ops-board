@@ -7,33 +7,33 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>FUTURUM · Arena</title>
+    <title>FUTURUM · Realm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=28" />
-    <link rel="stylesheet" href="./arena.css?v=28" />
+    <link rel="stylesheet" href="./styles.css?v=29" />
+    <link rel="stylesheet" href="./arena.css?v=29" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=28"></script>
+    <script src="./vk-bridge-init.js?v=29"></script>
   </head>
   <body class="arena-body">
     <div id="boot" class="boot">
       <a class="boot-back" href="/ops-board/">← FUTURUM</a>
-      <p class="boot-kicker">open world demo</p>
-      <h1 class="boot-title">ARENA</h1>
+      <p class="boot-kicker">adventure realm</p>
+      <h1 class="boot-title">REALM</h1>
       <p class="boot-lead">
-        Карта 1000×1000 · случайный спавн · боты · лут · магазин · прокачка оружия
+        Лес и поля · монстры · боссы · золото · оружие и прокачка
       </p>
       <label class="boot-name">
-        <span>Имя</span>
-        <input id="player-name" maxlength="14" placeholder="Оператор" />
+        <span>Имя героя</span>
+        <input id="player-name" maxlength="14" placeholder="Странник" />
       </label>
-      <button type="button" class="boot-btn" id="btn-start">Войти в арену</button>
+      <button type="button" class="boot-btn" id="btn-start">Начать</button>
       <p class="boot-help">
-        WASD — ходьба · мышь — прицел · ЛКМ — стрельба · E — подобрать · B — магазин · 1–4 — способности
+        WASD / стрелки — ходьба · пробел / клик — удар · E — подобрать · B — лавка · 1 — рывок
       </p>
     </div>
 
@@ -44,51 +44,45 @@
           <span>HP</span>
           <div class="bar"><i id="hp-bar"></i></div>
         </div>
-        <div class="hud-chip" id="scrap-chip">⚙ 0</div>
-        <div class="hud-chip" id="kill-chip">✖ 0</div>
-        <button type="button" class="hud-shop-btn" id="btn-shop">Магазин</button>
+        <div class="hud-stat xp-stat">
+          <span>XP</span>
+          <div class="bar bar-xp"><i id="xp-bar"></i></div>
+        </div>
+        <div class="hud-chip" id="lvl-chip">LVL 1</div>
+        <div class="hud-chip" id="gold-chip">◆ 0</div>
+        <button type="button" class="hud-shop-btn" id="btn-shop">Лавка</button>
       </div>
-
       <div class="hud-weapon" id="weapon-hud">
-        <strong id="weapon-name">Пистолет</strong>
-        <span id="weapon-ammo">12 / ∞</span>
-        <span id="weapon-lvl">ур. 1</span>
+        <strong id="weapon-name">Кинжал</strong>
+        <span id="weapon-meta">урон 8</span>
       </div>
-
-      <div class="abilities" id="abilities"></div>
-      <div class="minimap-wrap"><canvas id="minimap" width="120" height="120"></canvas></div>
       <p class="hud-toast" id="toast"></p>
-      <p class="hud-coords" id="coords">0, 0</p>
+      <p class="hud-hint" id="zone-hint">Тихие поля</p>
     </div>
 
     <div id="shop" class="shop" hidden>
       <div class="shop-panel">
         <header>
-          <h2>Торговый пост</h2>
+          <h2>Лавка путника</h2>
           <button type="button" class="shop-close" id="shop-close">✕</button>
         </header>
-        <p class="shop-scrap">Ваш лом: <strong id="shop-scrap">0</strong></p>
-        <div class="shop-tabs">
-          <button type="button" class="tab is-on" data-tab="weapons">Оружие</button>
-          <button type="button" class="tab" data-tab="upgrades">Улучшения</button>
-          <button type="button" class="tab" data-tab="consumables">Расходники</button>
-        </div>
+        <p class="shop-scrap">Золото: <strong id="shop-gold">0</strong></p>
         <div class="shop-list" id="shop-list"></div>
       </div>
     </div>
 
     <div id="dead" class="dead" hidden>
-      <h2>Вы выбыли</h2>
+      <h2>Поражение</h2>
       <p id="dead-stats"></p>
-      <button type="button" class="boot-btn" id="btn-respawn">Респавн</button>
+      <button type="button" class="boot-btn" id="btn-respawn">Воскреснуть</button>
     </div>
 
     <canvas id="game"></canvas>
     <div class="touch" id="touch" hidden>
       <div class="stick" id="stick"><i id="stick-knob"></i></div>
-      <button type="button" class="fire-btn" id="fire-btn">🔥</button>
+      <button type="button" class="fire-btn" id="fire-btn">⚔</button>
     </div>
 
-    <script src="./arena.js?v=28"></script>
+    <script src="./arena.js?v=29"></script>
   </body>
 </html>

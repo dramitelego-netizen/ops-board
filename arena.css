@@ -164,6 +164,32 @@
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
 }
 
+.bar-xp {
+  border-color: rgba(103, 232, 249, 0.3);
+}
+
+.bar-xp i {
+  background: linear-gradient(90deg, #22d3ee, #67e8f9);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+}
+
+.xp-stat {
+  max-width: 120px;
+}
+
+.hud-hint {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fa3b8;
+}
+
 .hud-chip,
 .hud-shop-btn {
   pointer-events: auto;

@@ -1,82 +1,95 @@
 /**
- * FUTURUM Arena — браузерная арена 1000×1000.
- * Одиночный режим с ботами (мультиплеер потребует сервер).
+ * FUTURUM Realm — вид «в три четверти»: герой на поле, деревья, монстры, боссы, золото.
  */
 
-const WORLD = 1000;
-const BOT_COUNT = 18;
-const LOOT_COUNT = 40;
+const WORLD_W = 3200;
+const WORLD_H = 2200;
 
-const WEAPONS = {
-  pistol: {
-    id: "pistol",
-    name: "Пистолет",
-    dmg: 12,
-    rate: 0.28,
-    speed: 420,
-    spread: 0.06,
-    range: 380,
+const WEAPONS = [
+  { id: "dagger", name: "Кинжал", dmg: 8, range: 42, cd: 0.32, price: 0 },
+  { id: "sword", name: "Меч странника", dmg: 14, range: 52, cd: 0.38, price: 60 },
+  { id: "axe", name: "Секира", dmg: 22, range: 58, cd: 0.55, price: 140 },
+  { id: "spear", name: "Копьё бури", dmg: 18, reach: 78, cd: 0.42, price: 220 },
+  { id: "blade", name: "Клинок FUTURUM", dmg: 32, reach: 70, cd: 0.34, price: 420 },
+];
+
+const MONSTER_TYPES = {
+  slime: {
+    name: "Слайм",
+    hp: 28,
+    dmg: 6,
+    speed: 55,
+    xp: 8,
+    gold: [2, 6],
+    color: "#4ade80",
+    w: 28,
+    h: 22,
+    boss: false,
+  },
+  wolf: {
+    name: "Волк",
+    hp: 45,
+    dmg: 10,
+    speed: 95,
+    xp: 14,
+    gold: [4, 10],
     color: "#94a3b8",
-    price: 0,
+    w: 36,
+    h: 28,
+    boss: false,
   },
-  smg: {
-    id: "smg",
-    name: "ПП «Шёпот»",
-    dmg: 8,
-    rate: 0.09,
-    speed: 480,
-    spread: 0.14,
-    range: 320,
-    color: "#67e8f9",
-    price: 90,
+  skeleton: {
+    name: "Скелет",
+    hp: 70,
+    dmg: 14,
+    speed: 70,
+    xp: 22,
+    gold: [8, 16],
+    color: "#e2e8f0",
+    w: 26,
+    h: 44,
+    boss: false,
   },
-  shotgun: {
-    id: "shotgun",
-    name: "Дробовик",
-    dmg: 9,
-    rate: 0.7,
-    speed: 380,
-    spread: 0.28,
-    range: 220,
-    pellets: 5,
+  brute: {
+    name: "Громила",
+    hp: 140,
+    dmg: 20,
+    speed: 48,
+    xp: 40,
+    gold: [16, 30],
     color: "#fb7185",
-    price: 140,
+    w: 42,
+    h: 52,
+    boss: false,
   },
-  rifle: {
-    id: "rifle",
-    name: "Винтовка",
+  boss_golem: {
+    name: "Каменный страж",
+    hp: 520,
     dmg: 28,
-    rate: 0.55,
-    speed: 620,
-    spread: 0.02,
-    range: 520,
-    color: "#fbbf24",
-    price: 220,
+    speed: 42,
+    xp: 180,
+    gold: [80, 140],
+    color: "#f59e0b",
+    w: 70,
+    h: 90,
+    boss: true,
   },
-  laser: {
-    id: "laser",
-    name: "Луч FUTURUM",
-    dmg: 18,
-    rate: 0.16,
-    speed: 700,
-    spread: 0.01,
-    range: 560,
-    color: "#22d3ee",
-    price: 360,
+  boss_wraith: {
+    name: "Теневой лорд",
+    hp: 680,
+    dmg: 34,
+    speed: 70,
+    xp: 240,
+    gold: [120, 200],
+    color: "#a78bfa",
+    w: 56,
+    h: 86,
+    boss: true,
   },
 };
 
-const ABILITIES = [
-  { id: "dash", name: "Рывок", key: "1", cd: 4 },
-  { id: "shield", name: "Щит", key: "2", cd: 10 },
-  { id: "pulse", name: "Импульс", key: "3", cd: 8 },
-  { id: "heal", name: "Наногель", key: "4", cd: 12 },
-];
-
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const minimap = document.getElementById("minimap");
-const mctx = minimap.getContext("2d");
 
 const ui = {
   boot: document.getElementById("boot"),
@@ -86,16 +99,15 @@ const ui = {
   touch: document.getElementById("touch"),
   name: document.getElementById("player-name"),
   hpBar: document.getElementById("hp-bar"),
-  scrapChip: document.getElementById("scrap-chip"),
-  killChip: document.getElementById("kill-chip"),
+  xpBar: document.getElementById("xp-bar"),
+  lvlChip: document.getElementById("lvl-chip"),
+  goldChip: document.getElementById("gold-chip"),
   weaponName: document.getElementById("weapon-name"),
-  weaponAmmo: document.getElementById("weapon-ammo"),
-  weaponLvl: document.getElementById("weapon-lvl"),
-  abilities: document.getElementById("abilities"),
+  weaponMeta: document.getElementById("weapon-meta"),
   toast: document.getElementById("toast"),
-  coords: document.getElementById("coords"),
+  zone: document.getElementById("zone-hint"),
   shopList: document.getElementById("shop-list"),
-  shopScrap: document.getElementById("shop-scrap"),
+  shopGold: document.getElementById("shop-gold"),
   deadStats: document.getElementById("dead-stats"),
   stick: document.getElementById("stick"),
   stickKnob: document.getElementById("stick-knob"),
@@ -104,365 +116,345 @@ const ui = {
 let W = 0;
 let H = 0;
 let running = false;
-let shopTab = "weapons";
+let lastTs = 0;
 let toastTimer = 0;
 let cam = { x: 0, y: 0 };
-let mouse = { x: 0, y: 0, down: false };
 let keys = {};
 let stickVec = { x: 0, y: 0 };
-let fireTouch = false;
-let lastTs = 0;
+let attackHeld = false;
 
 const state = {
   player: null,
-  bots: [],
-  bullets: [],
-  loot: [],
-  particles: [],
-  obstacles: [],
+  monsters: [],
+  drops: [],
+  trees: [],
+  rocks: [],
+  effects: [],
   time: 0,
+  bossesSpawned: { golem: false, wraith: false },
 };
 
 function rand(a, b) {
   return a + Math.random() * (b - a);
 }
-
+function irand(a, b) {
+  return (a + Math.random() * (b - a + 1)) | 0;
+}
 function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
 }
-
 function dist(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.hypot(dx, dy);
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
-
-function toast(text) {
-  ui.toast.textContent = text;
+function toast(t) {
+  ui.toast.textContent = t;
   ui.toast.classList.add("is-on");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => ui.toast.classList.remove("is-on"), 1800);
+  toastTimer = setTimeout(() => ui.toast.classList.remove("is-on"), 1700);
 }
 
 function resize() {
-  W = window.innerWidth;
-  H = window.innerHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
+  W = innerWidth;
+  H = innerHeight;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = (W * dpr) | 0;
+  canvas.height = (H * dpr) | 0;
   canvas.style.width = `${W}px`;
   canvas.style.height = `${H}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function randomPoint(margin = 40) {
+function xpToLevel(lvl) {
+  return 40 + lvl * 28;
+}
+
+function weaponOf(p) {
+  return WEAPONS.find((w) => w.id === p.weaponId) || WEAPONS[0];
+}
+
+function makePlayer(name) {
   return {
-    x: rand(margin, WORLD - margin),
-    y: rand(margin, WORLD - margin),
+    name,
+    x: rand(400, WORLD_W - 400),
+    y: rand(400, WORLD_H - 400),
+    facing: 1,
+    hp: 100,
+    maxHp: 100,
+    gold: 15,
+    xp: 0,
+    level: 1,
+    weaponId: "dagger",
+    owned: { dagger: true },
+    attackCd: 0,
+    attackFlash: 0,
+    dashCd: 0,
+    dashT: 0,
+    invuln: 0,
+    anim: 0,
+    moving: false,
+    kills: 0,
+    bosses: 0,
   };
 }
 
-function makeActor(name, isPlayer = false) {
-  const p = randomPoint();
-  const hues = [190, 160, 25, 350, 280, 45];
+function makeMonster(typeId, x, y) {
+  const t = MONSTER_TYPES[typeId];
   return {
-    id: Math.random().toString(36).slice(2, 9),
-    name,
-    isPlayer,
-    x: p.x,
-    y: p.y,
-    vx: 0,
-    vy: 0,
-    angle: rand(0, Math.PI * 2),
-    hp: 100,
-    maxHp: 100,
-    speed: isPlayer ? 145 : rand(90, 130),
-    radius: 14,
-    scrap: isPlayer ? 40 : 0,
-    kills: 0,
-    weaponId: "pistol",
-    weaponLvl: 1,
-    owned: { pistol: true },
-    fireCd: 0,
-    dashCd: 0,
-    shieldCd: 0,
-    pulseCd: 0,
-    healCd: 0,
-    shieldT: 0,
-    dashT: 0,
-    hue: hues[(Math.random() * hues.length) | 0],
-    ai: isPlayer
-      ? null
-      : {
-          aim: rand(0, Math.PI * 2),
-          retarget: 0,
-          aggression: Math.random(),
-        },
+    typeId,
+    ...t,
+    x,
+    y,
+    hp: t.hp,
+    maxHp: t.hp,
+    facing: Math.random() > 0.5 ? 1 : -1,
+    attackCd: 0,
+    hitFlash: 0,
     alive: true,
+    wander: rand(0, Math.PI * 2),
+    retarget: 0,
+    anim: rand(0, 10),
   };
 }
 
 function buildWorld() {
-  state.obstacles = [];
-  for (let i = 0; i < 55; i++) {
-    const p = randomPoint(60);
-    state.obstacles.push({
-      x: p.x,
-      y: p.y,
-      w: rand(28, 70),
-      h: rand(28, 70),
-      kind: Math.random() > 0.5 ? "crate" : "rock",
+  state.trees = [];
+  for (let i = 0; i < 120; i++) {
+    state.trees.push({
+      x: rand(80, WORLD_W - 80),
+      y: rand(80, WORLD_H - 80),
+      h: rand(70, 130),
+      trunk: rand(8, 14),
+      shade: rand(0.85, 1.1),
+    });
+  }
+  state.rocks = [];
+  for (let i = 0; i < 40; i++) {
+    state.rocks.push({
+      x: rand(60, WORLD_W - 60),
+      y: rand(60, WORLD_H - 60),
+      r: rand(12, 28),
     });
   }
 
-  state.loot = [];
-  for (let i = 0; i < LOOT_COUNT; i++) spawnLoot();
-
-  state.bots = [];
-  for (let i = 0; i < BOT_COUNT; i++) {
-    state.bots.push(makeActor(`Бот-${i + 1}`));
-  }
-  state.bullets = [];
-  state.particles = [];
-}
-
-function spawnLoot(near = null) {
-  const kinds = [
-    { type: "scrap", amount: 8 + ((Math.random() * 18) | 0), color: "#fbbf24" },
-    { type: "scrap", amount: 15 + ((Math.random() * 25) | 0), color: "#f59e0b" },
-    { type: "med", amount: 25, color: "#4ade80" },
-    { type: "ammo", amount: 1, color: "#67e8f9" },
+  state.monsters = [];
+  const packs = [
+    ...Array(22).fill("slime"),
+    ...Array(16).fill("wolf"),
+    ...Array(12).fill("skeleton"),
+    ...Array(7).fill("brute"),
   ];
-  if (Math.random() < 0.12) {
-    const ids = ["smg", "shotgun", "rifle"];
-    kinds.push({
-      type: "weapon",
-      weaponId: ids[(Math.random() * ids.length) | 0],
-      color: "#fb7185",
-    });
+  for (const typeId of packs) {
+    state.monsters.push(makeMonster(typeId, rand(120, WORLD_W - 120), rand(120, WORLD_H - 120)));
   }
-  const kind = kinds[(Math.random() * kinds.length) | 0];
-  let p = near
-    ? { x: near.x + rand(-30, 30), y: near.y + rand(-30, 30) }
-    : randomPoint(50);
-  p.x = clamp(p.x, 20, WORLD - 20);
-  p.y = clamp(p.y, 20, WORLD - 20);
-  state.loot.push({ ...p, ...kind, r: 8, life: 1 });
+
+  state.drops = [];
+  state.effects = [];
+  state.bossesSpawned = { golem: false, wraith: false };
 }
 
-function weaponOf(actor) {
-  return WEAPONS[actor.weaponId] || WEAPONS.pistol;
+function spawnDrop(x, y, kind, amount, extra = {}) {
+  state.drops.push({
+    x: x + rand(-16, 16),
+    y: y + rand(-10, 10),
+    kind,
+    amount,
+    ...extra,
+    bob: rand(0, Math.PI * 2),
+    life: 45,
+  });
 }
 
-function weaponDamage(actor) {
-  const w = weaponOf(actor);
-  return w.dmg * (1 + (actor.weaponLvl - 1) * 0.18);
-}
-
-function collideObstacles(ent, nx, ny) {
-  const r = ent.radius;
-  for (const o of state.obstacles) {
-    const cx = clamp(nx, o.x - o.w / 2, o.x + o.w / 2);
-    const cy = clamp(ny, o.y - o.h / 2, o.y + o.h / 2);
-    const dx = nx - cx;
-    const dy = ny - cy;
-    if (dx * dx + dy * dy < r * r) return true;
+function gainXp(p, amount) {
+  p.xp += amount;
+  while (p.xp >= xpToLevel(p.level)) {
+    p.xp -= xpToLevel(p.level);
+    p.level += 1;
+    p.maxHp += 12;
+    p.hp = p.maxHp;
+    toast(`Уровень ${p.level}! +HP`);
   }
-  return false;
 }
 
-function moveEntity(ent, dx, dy, dt) {
-  const len = Math.hypot(dx, dy) || 1;
-  const boost = ent.dashT > 0 ? 2.4 : 1;
-  const sp = ent.speed * boost * dt;
-  const mx = (dx / len) * sp;
-  const my = (dy / len) * sp;
-  let nx = ent.x + mx;
-  let ny = ent.y + my;
-  nx = clamp(nx, ent.radius, WORLD - ent.radius);
-  ny = clamp(ny, ent.radius, WORLD - ent.radius);
-  if (!collideObstacles(ent, nx, ent.y)) ent.x = nx;
-  if (!collideObstacles(ent, ent.x, ny)) ent.y = ny;
-}
-
-function shoot(actor) {
-  if (!actor.alive || actor.fireCd > 0) return;
-  const w = weaponOf(actor);
-  const pellets = w.pellets || 1;
-  actor.fireCd = w.rate / (1 + (actor.weaponLvl - 1) * 0.08);
-  for (let i = 0; i < pellets; i++) {
-    const spread = (Math.random() - 0.5) * w.spread * 2;
-    const a = actor.angle + spread;
-    state.bullets.push({
-      x: actor.x + Math.cos(a) * (actor.radius + 6),
-      y: actor.y + Math.sin(a) * (actor.radius + 6),
-      vx: Math.cos(a) * w.speed,
-      vy: Math.sin(a) * w.speed,
-      life: w.range / w.speed,
-      dmg: weaponDamage(actor),
-      owner: actor.id,
-      color: w.color,
-      r: pellets > 1 ? 2.5 : 3.2,
-    });
+function killMonster(m, byPlayer) {
+  if (!m.alive) return;
+  m.alive = false;
+  const [g0, g1] = m.gold;
+  const gold = irand(g0, g1);
+  spawnDrop(m.x, m.y, "gold", gold);
+  if (Math.random() < 0.18) spawnDrop(m.x, m.y, "heart", 20);
+  if (m.boss) spawnDrop(m.x, m.y, "chest", 1);
+  if (byPlayer) {
+    const p = state.player;
+    p.kills += 1;
+    if (m.boss) p.bosses += 1;
+    gainXp(p, m.xp);
+    toast(`${m.name} повержен · +${gold}◆`);
   }
-  burst(actor.x + Math.cos(actor.angle) * 18, actor.y + Math.sin(actor.angle) * 18, w.color, 4);
+  burst(m.x, m.y - 20, m.color, 16);
+
+  setTimeout(() => {
+    if (!running) return;
+    if (m.boss) return;
+    const types = ["slime", "slime", "wolf", "skeleton", "brute"];
+    const t = types[(Math.random() * types.length) | 0];
+    state.monsters.push(makeMonster(t, rand(100, WORLD_W - 100), rand(100, WORLD_H - 100)));
+  }, 4000);
 }
 
-function burst(x, y, color, n = 8) {
+function burst(x, y, color, n) {
   for (let i = 0; i < n; i++) {
     const a = rand(0, Math.PI * 2);
-    const s = rand(40, 160);
-    state.particles.push({
+    const s = rand(40, 180);
+    state.effects.push({
       x,
       y,
       vx: Math.cos(a) * s,
-      vy: Math.sin(a) * s,
-      life: rand(0.2, 0.55),
+      vy: Math.sin(a) * s - 40,
+      life: rand(0.25, 0.7),
       color,
-      r: rand(1.5, 3.5),
+      r: rand(2, 5),
     });
   }
 }
 
-function killActor(victim, killer) {
-  if (!victim.alive) return;
-  victim.alive = false;
-  victim.hp = 0;
-  burst(victim.x, victim.y, `hsl(${victim.hue} 80% 60%)`, 18);
-  for (let i = 0; i < 3; i++) spawnLoot(victim);
-
-  if (killer?.isPlayer) {
-    killer.kills += 1;
-    killer.scrap += 12 + ((Math.random() * 18) | 0);
-    toast(`Убит ${victim.name} · +лом`);
-  }
-
-  if (victim.isPlayer) {
-    running = false;
-    ui.dead.hidden = false;
-    ui.deadStats.textContent = `Убийств: ${victim.kills} · Лом: ${victim.scrap} · Оружие: ${weaponOf(victim).name} ур.${victim.weaponLvl}`;
-  } else {
-    setTimeout(() => {
-      const i = state.bots.indexOf(victim);
-      if (i >= 0) state.bots[i] = makeActor(`Бот-${((Math.random() * 90) | 0) + 1}`);
-    }, 2500);
-  }
-}
-
-function damage(target, amount, source) {
-  if (!target.alive) return;
-  if (target.shieldT > 0) amount *= 0.35;
-  target.hp -= amount;
-  burst(target.x, target.y, "#fb7185", 5);
-  if (target.hp <= 0) killActor(target, source);
-}
-
-function useAbility(id) {
+function tryAttack() {
   const p = state.player;
-  if (!p?.alive) return;
-  if (id === "dash" && p.dashCd <= 0) {
-    p.dashCd = ABILITIES[0].cd;
-    p.dashT = 0.22;
-    toast("Рывок!");
-  }
-  if (id === "shield" && p.shieldCd <= 0) {
-    p.shieldCd = ABILITIES[1].cd;
-    p.shieldT = 3.2;
-    toast("Щит активен");
-  }
-  if (id === "pulse" && p.pulseCd <= 0) {
-    p.pulseCd = ABILITIES[2].cd;
-    for (const b of state.bots) {
-      if (b.alive && dist(p, b) < 120) {
-        damage(b, 22, p);
-        const a = Math.atan2(b.y - p.y, b.x - p.x);
-        b.x += Math.cos(a) * 28;
-        b.y += Math.sin(a) * 28;
-      }
+  if (!p || p.attackCd > 0) return;
+  const w = weaponOf(p);
+  p.attackCd = w.cd;
+  p.attackFlash = 0.18;
+  const reach = w.reach || 48;
+  const dmg = w.dmg + Math.floor((p.level - 1) * 1.6);
+  let hit = false;
+  for (const m of state.monsters) {
+    if (!m.alive) continue;
+    const dx = m.x - p.x;
+    const dy = m.y - p.y;
+    const inFront = p.facing > 0 ? dx > -10 : dx < 10;
+    if (inFront && Math.hypot(dx, dy) < reach + m.w * 0.35) {
+      m.hp -= dmg;
+      m.hitFlash = 0.15;
+      m.x += p.facing * 14;
+      burst(m.x, m.y - m.h * 0.4, "#fecaca", 6);
+      hit = true;
+      if (m.hp <= 0) killMonster(m, true);
     }
-    burst(p.x, p.y, "#67e8f9", 24);
-    toast("Импульс!");
   }
-  if (id === "heal" && p.healCd <= 0) {
-    p.healCd = ABILITIES[3].cd;
-    p.hp = Math.min(p.maxHp, p.hp + 35);
-    toast("+35 HP");
-  }
+  if (hit) burst(p.x + p.facing * 28, p.y - 24, "#fde68a", 4);
 }
 
-function pickupNearest() {
+function useDash() {
   const p = state.player;
-  if (!p?.alive) return;
+  if (!p || p.dashCd > 0) return;
+  p.dashCd = 3.5;
+  p.dashT = 0.2;
+  p.invuln = 0.25;
+  toast("Рывок");
+}
+
+function pickup() {
+  const p = state.player;
   let best = null;
-  let bestD = 28;
-  for (const l of state.loot) {
-    const d = dist(p, l);
-    if (d < bestD) {
-      best = l;
-      bestD = d;
+  let bestD = 36;
+  for (const d of state.drops) {
+    const dd = dist(p, d);
+    if (dd < bestD) {
+      best = d;
+      bestD = dd;
     }
   }
   if (!best) return;
-  if (best.type === "scrap") {
-    p.scrap += best.amount;
-    toast(`+${best.amount} лома`);
-  } else if (best.type === "med") {
+  if (best.kind === "gold") {
+    p.gold += best.amount;
+    toast(`+${best.amount} золота`);
+  } else if (best.kind === "heart") {
     p.hp = Math.min(p.maxHp, p.hp + best.amount);
-    toast(`Аптечка +${best.amount}`);
-  } else if (best.type === "ammo") {
-    p.weaponLvl = Math.min(8, p.weaponLvl + 1);
-    toast(`Усиление оружия → ур.${p.weaponLvl}`);
-  } else if (best.type === "weapon") {
-    p.owned[best.weaponId] = true;
-    p.weaponId = best.weaponId;
-    toast(`Новое оружие: ${WEAPONS[best.weaponId].name}`);
+    toast(`+${best.amount} HP`);
+  } else if (best.kind === "chest") {
+    p.gold += 50;
+    gainXp(p, 40);
+    toast("Сундук босса!");
   }
-  state.loot = state.loot.filter((x) => x !== best);
+  state.drops = state.drops.filter((x) => x !== best);
 }
 
-function updateBot(bot, dt) {
-  if (!bot.alive) return;
-  bot.ai.retarget -= dt;
-  const player = state.player;
-  const target =
-    player?.alive && dist(bot, player) < 280 + bot.ai.aggression * 180
-      ? player
-      : null;
+function zoneName(p) {
+  if (p.x < WORLD_W * 0.33) return "Тихие поля";
+  if (p.x < WORLD_W * 0.66) return "Тёмный лес";
+  return "Руины стража";
+}
 
-  if (bot.ai.retarget <= 0) {
-    bot.ai.retarget = rand(0.4, 1.2);
-    if (target) bot.ai.aim = Math.atan2(target.y - bot.y, target.x - bot.x);
-    else bot.ai.aim = rand(0, Math.PI * 2);
+function maybeSpawnBosses() {
+  const p = state.player;
+  if (!p) return;
+  if (!state.bossesSpawned.golem && p.level >= 3) {
+    state.bossesSpawned.golem = true;
+    state.monsters.push(makeMonster("boss_golem", WORLD_W * 0.72, WORLD_H * 0.35));
+    toast("Пробудился Каменный страж!");
   }
+  if (!state.bossesSpawned.wraith && p.level >= 5) {
+    state.bossesSpawned.wraith = true;
+    state.monsters.push(makeMonster("boss_wraith", WORLD_W * 0.82, WORLD_H * 0.7));
+    toast("Теневой лорд явился!");
+  }
+}
 
-  bot.angle = bot.ai.aim;
-  const wantFight = target && dist(bot, target) < 220;
-  if (wantFight) {
-    const d = dist(bot, target);
-    if (d > 90) moveEntity(bot, Math.cos(bot.angle), Math.sin(bot.angle), dt);
-    else if (d < 55) moveEntity(bot, -Math.cos(bot.angle), -Math.sin(bot.angle), dt);
-    if (Math.random() < 0.02 + bot.ai.aggression * 0.03) shoot(bot);
+function updateMonster(m, dt) {
+  if (!m.alive) return;
+  m.anim += dt;
+  m.hitFlash = Math.max(0, m.hitFlash - dt);
+  m.attackCd = Math.max(0, m.attackCd - dt);
+  m.retarget -= dt;
+
+  const p = state.player;
+  const d = p ? dist(m, p) : 9999;
+  const aggro = m.boss ? 420 : 210;
+
+  if (p && d < aggro) {
+    const ang = Math.atan2(p.y - m.y, p.x - m.x);
+    m.facing = Math.cos(ang) >= 0 ? 1 : -1;
+    const stop = m.boss ? 48 : 34;
+    if (d > stop) {
+      m.x += Math.cos(ang) * m.speed * dt;
+      m.y += Math.sin(ang) * m.speed * dt * 0.85;
+    } else if (m.attackCd <= 0 && p.invuln <= 0) {
+      m.attackCd = m.boss ? 1.1 : 0.85;
+      p.hp -= m.dmg;
+      p.invuln = 0.45;
+      burst(p.x, p.y - 30, "#fb7185", 8);
+      if (p.hp <= 0) onPlayerDead();
+    }
   } else {
-    moveEntity(bot, Math.cos(bot.ai.aim), Math.sin(bot.ai.aim), dt);
+    if (m.retarget <= 0) {
+      m.retarget = rand(1, 2.5);
+      m.wander = rand(0, Math.PI * 2);
+    }
+    m.x += Math.cos(m.wander) * m.speed * 0.35 * dt;
+    m.y += Math.sin(m.wander) * m.speed * 0.3 * dt;
+    m.facing = Math.cos(m.wander) >= 0 ? 1 : -1;
   }
-  bot.fireCd = Math.max(0, bot.fireCd - dt);
+
+  m.x = clamp(m.x, 40, WORLD_W - 40);
+  m.y = clamp(m.y, 40, WORLD_H - 40);
+}
+
+function onPlayerDead() {
+  running = false;
+  const p = state.player;
+  ui.dead.hidden = false;
+  ui.deadStats.textContent = `Ур.${p.level} · убийств ${p.kills} · боссов ${p.bosses} · золото ${p.gold}`;
 }
 
 function update(dt) {
   state.time += dt;
   const p = state.player;
-  if (!p?.alive) return;
+  if (!p) return;
 
-  // cooldowns
-  for (const a of [p, ...state.bots]) {
-    a.fireCd = Math.max(0, a.fireCd - dt);
-    a.dashCd = Math.max(0, (a.dashCd || 0) - dt);
-    a.shieldCd = Math.max(0, (a.shieldCd || 0) - dt);
-    a.pulseCd = Math.max(0, (a.pulseCd || 0) - dt);
-    a.healCd = Math.max(0, (a.healCd || 0) - dt);
-    a.shieldT = Math.max(0, (a.shieldT || 0) - dt);
-    a.dashT = Math.max(0, (a.dashT || 0) - dt);
-  }
+  p.attackCd = Math.max(0, p.attackCd - dt);
+  p.attackFlash = Math.max(0, p.attackFlash - dt);
+  p.dashCd = Math.max(0, p.dashCd - dt);
+  p.dashT = Math.max(0, p.dashT - dt);
+  p.invuln = Math.max(0, p.invuln - dt);
 
   let mx = 0;
   let my = 0;
@@ -472,154 +464,326 @@ function update(dt) {
   if (keys.d || keys.arrowright) mx += 1;
   mx += stickVec.x;
   my += stickVec.y;
-  if (mx || my) moveEntity(p, mx, my, dt);
 
-  const worldMx = mouse.x + cam.x;
-  const worldMy = mouse.y + cam.y;
-  p.angle = Math.atan2(worldMy - p.y, worldMx - p.x);
-
-  if ((mouse.down || fireTouch) && ui.shop.hidden) shoot(p);
-
-  for (const b of state.bots) updateBot(b, dt);
-
-  // bullets
-  for (const b of state.bullets) {
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
-    b.life -= dt;
+  const len = Math.hypot(mx, my);
+  p.moving = len > 0.1;
+  if (p.moving) {
+    if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
+    const sp = (118 + p.level * 2) * (p.dashT > 0 ? 2.6 : 1);
+    p.x = clamp(p.x + (mx / len) * sp * dt, 30, WORLD_W - 30);
+    p.y = clamp(p.y + (my / len) * sp * dt * 0.9, 30, WORLD_H - 30);
+    p.anim += dt * 8;
   }
-  state.bullets = state.bullets.filter((b) => {
-    if (b.life <= 0) return false;
-    if (b.x < 0 || b.y < 0 || b.x > WORLD || b.y > WORLD) return false;
-    for (const o of state.obstacles) {
-      if (
-        b.x > o.x - o.w / 2 &&
-        b.x < o.x + o.w / 2 &&
-        b.y > o.y - o.h / 2 &&
-        b.y < o.y + o.h / 2
-      ) {
-        burst(b.x, b.y, b.color, 3);
-        return false;
-      }
-    }
-    const actors = [state.player, ...state.bots].filter((a) => a && a.alive && a.id !== b.owner);
-    for (const a of actors) {
-      if (dist(b, a) < a.radius + b.r) {
-        const owner =
-          b.owner === state.player.id
-            ? state.player
-            : state.bots.find((x) => x.id === b.owner);
-        damage(a, b.dmg, owner);
-        burst(b.x, b.y, b.color, 6);
-        return false;
-      }
-    }
-    return true;
-  });
 
-  // particles
-  for (const pt of state.particles) {
-    pt.x += pt.vx * dt;
-    pt.y += pt.vy * dt;
-    pt.life -= dt;
-    pt.vx *= 0.96;
-    pt.vy *= 0.96;
-  }
-  state.particles = state.particles.filter((pt) => pt.life > 0);
+  if (attackHeld && ui.shop.hidden) tryAttack();
 
-  // auto-pickup scrap close
-  state.loot = state.loot.filter((l) => {
-    if (l.type === "scrap" && dist(p, l) < 22) {
-      p.scrap += l.amount;
+  for (const m of state.monsters) updateMonster(m, dt);
+
+  // auto gold pickup close
+  state.drops = state.drops.filter((d) => {
+    d.bob += dt * 4;
+    d.life -= dt;
+    if (d.kind === "gold" && dist(p, d) < 28) {
+      p.gold += d.amount;
       return false;
     }
-    l.life -= dt * 0.02;
-    return l.life > 0;
+    return d.life > 0;
   });
 
-  while (state.loot.length < LOOT_COUNT * 0.7) spawnLoot();
+  for (const e of state.effects) {
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.vy += 220 * dt;
+    e.life -= dt;
+  }
+  state.effects = state.effects.filter((e) => e.life > 0);
 
-  cam.x = clamp(p.x - W / 2, 0, Math.max(0, WORLD - W));
-  cam.y = clamp(p.y - H / 2, 0, Math.max(0, WORLD - H));
+  maybeSpawnBosses();
+  ui.zone.textContent = zoneName(p);
 
+  cam.x = clamp(p.x - W * 0.5, 0, Math.max(0, WORLD_W - W));
+  cam.y = clamp(p.y - H * 0.62, 0, Math.max(0, WORLD_H - H));
   updateHud();
 }
 
 function updateHud() {
   const p = state.player;
   ui.hpBar.style.transform = `scaleX(${clamp(p.hp / p.maxHp, 0, 1)})`;
-  ui.scrapChip.textContent = `⚙ ${p.scrap}`;
-  ui.killChip.textContent = `✖ ${p.kills}`;
+  ui.xpBar.style.transform = `scaleX(${clamp(p.xp / xpToLevel(p.level), 0, 1)})`;
+  ui.lvlChip.textContent = `LVL ${p.level}`;
+  ui.goldChip.textContent = `◆ ${p.gold}`;
   const w = weaponOf(p);
   ui.weaponName.textContent = w.name;
-  ui.weaponAmmo.textContent = "∞";
-  ui.weaponLvl.textContent = `ур. ${p.weaponLvl}`;
-  ui.coords.textContent = `${p.x | 0}, ${p.y | 0}`;
-
-  ui.abilities.innerHTML = ABILITIES.map((a) => {
-    const cd = p[`${a.id}Cd`] || 0;
-    return `<div class="ability ${cd > 0 ? "is-cd" : ""}">${a.name}<br>${a.key}</div>`;
-  }).join("");
+  ui.weaponMeta.textContent = `урон ${w.dmg + Math.floor((p.level - 1) * 1.6)}`;
 }
 
-function drawActor(a) {
-  if (!a.alive) return;
-  const x = a.x - cam.x;
-  const y = a.y - cam.y;
-  if (x < -40 || y < -40 || x > W + 40 || y > H + 40) return;
+/* ---------- drawing (side / 3/4 character view) ---------- */
+
+function drawGround() {
+  ctx.fillStyle = "#1a2a1f";
+  ctx.fillRect(0, 0, W, H);
+
+  // parallax sky band at top of camera if near north
+  const skyH = 120;
+  const g = ctx.createLinearGradient(0, 0, 0, skyH);
+  g.addColorStop(0, "#0b1524");
+  g.addColorStop(1, "rgba(26,42,31,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, skyH);
+
+  const cell = 64;
+  const ox = -((cam.x / cell) % 1) * cell;
+  const oy = -((cam.y / cell) % 1) * cell;
+  for (let y = oy - cell; y < H + cell; y += cell) {
+    for (let x = ox - cell; x < W + cell; x += cell) {
+      const wx = cam.x + x;
+      const wy = cam.y + y;
+      const n = Math.sin(wx * 0.01) * Math.cos(wy * 0.01);
+      ctx.fillStyle = n > 0.15 ? "#203528" : n < -0.2 ? "#16241c" : "#1c2f23";
+      ctx.fillRect(x, y, cell + 1, cell + 1);
+      if (((wx / cell) | 0) % 3 === 0 && ((wy / cell) | 0) % 2 === 0) {
+        ctx.fillStyle = "rgba(74,222,128,0.05)";
+        ctx.beginPath();
+        ctx.ellipse(x + 20, y + 28, 10, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function drawTree(t) {
+  const x = t.x - cam.x;
+  const y = t.y - cam.y;
+  if (x < -80 || x > W + 80 || y < -20 || y > H + 160) return;
+
+  // shadow on ground
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 6, 22 * t.shade, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // trunk
+  ctx.fillStyle = "#5b3a22";
+  ctx.fillRect(x - t.trunk / 2, y - t.h * 0.45, t.trunk, t.h * 0.5);
+
+  // foliage layers (side-view canopy)
+  const layers = [
+    { oy: -t.h * 0.55, r: 28 * t.shade, c: "#166534" },
+    { oy: -t.h * 0.72, r: 24 * t.shade, c: "#15803d" },
+    { oy: -t.h * 0.88, r: 18 * t.shade, c: "#22c55e" },
+  ];
+  for (const L of layers) {
+    ctx.fillStyle = L.c;
+    ctx.beginPath();
+    ctx.ellipse(x, y + L.oy, L.r, L.r * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRock(r) {
+  const x = r.x - cam.x;
+  const y = r.y - cam.y;
+  if (x < -40 || x > W + 40 || y < -40 || y > H + 40) return;
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, r.r * 0.9, r.r * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#64748b";
+  ctx.beginPath();
+  ctx.ellipse(x, y - r.r * 0.2, r.r, r.r * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#94a3b8";
+  ctx.beginPath();
+  ctx.ellipse(x - r.r * 0.25, y - r.r * 0.35, r.r * 0.35, r.r * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawHero(p) {
+  const x = p.x - cam.x;
+  const y = p.y - cam.y;
+  const bob = p.moving ? Math.sin(p.anim) * 2 : 0;
+  const f = p.facing;
 
   ctx.save();
   ctx.translate(x, y);
+  if (p.invuln > 0 && ((state.time * 20) | 0) % 2 === 0) ctx.globalAlpha = 0.45;
 
-  // shadow
+  // ground shadow
   ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.beginPath();
-  ctx.ellipse(0, 10, 12, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 4, 16, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  if (a.shieldT > 0) {
-    ctx.strokeStyle = "rgba(103,232,249,0.7)";
-    ctx.lineWidth = 2;
+  ctx.translate(0, bob - 6);
+
+  // legs
+  const legSwing = p.moving ? Math.sin(p.anim) * 7 : 0;
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(-8 + legSwing * 0.15, 8, 6, 14);
+  ctx.fillRect(2 - legSwing * 0.15, 8, 6, 14);
+
+  // body
+  const body = ctx.createLinearGradient(-12, -28, 12, 10);
+  body.addColorStop(0, "#67e8f9");
+  body.addColorStop(1, "#0e7490");
+  ctx.fillStyle = body;
+  roundRect(-11, -26, 22, 34, 7);
+  ctx.fill();
+
+  // scarf / belt
+  ctx.fillStyle = "#f97316";
+  ctx.fillRect(-11, -4, 22, 5);
+
+  // head
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.arc(0, -36, 11, 0, Math.PI * 2);
+  ctx.fill();
+
+  // hair
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.arc(-2 * f, -40, 9, Math.PI, Math.PI * 2);
+  ctx.fill();
+
+  // eye
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.arc(4 * f, -36, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // weapon swing
+  const w = weaponOf(p);
+  const swing = p.attackFlash > 0 ? (0.18 - p.attackFlash) / 0.18 : 0;
+  const ang = f * (-0.6 + swing * 1.8);
+  ctx.save();
+  ctx.translate(8 * f, -8);
+  ctx.rotate(ang);
+  ctx.fillStyle = "#cbd5e1";
+  ctx.fillRect(0, -3, w.reach ? w.reach * 0.7 : 34, 6);
+  ctx.fillStyle = "#fbbf24";
+  ctx.fillRect(-4, -5, 10, 10);
+  ctx.restore();
+
+  // attack arc
+  if (p.attackFlash > 0) {
+    ctx.strokeStyle = `rgba(253,230,138,${p.attackFlash * 4})`;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, a.radius + 6, 0, Math.PI * 2);
+    ctx.arc(0, -10, (w.reach || 48) * 0.7, f > 0 ? -1.1 : Math.PI - 0.2, f > 0 ? 0.5 : Math.PI + 1.1);
     ctx.stroke();
   }
 
-  ctx.rotate(a.angle);
-  // body
-  const g = ctx.createLinearGradient(-12, -12, 12, 12);
-  g.addColorStop(0, `hsl(${a.hue} 70% 62%)`);
-  g.addColorStop(1, `hsl(${a.hue} 70% 38%)`);
-  ctx.fillStyle = g;
-  ctx.strokeStyle = "rgba(255,255,255,0.25)";
-  ctx.lineWidth = 1.5;
-  roundRect(-11, -11, 22, 22, 6);
-  ctx.fill();
-  ctx.stroke();
-
-  // head visor
-  ctx.fillStyle = a.isPlayer ? "#e0f7ff" : "#0b1220";
-  ctx.fillRect(2, -5, 8, 10);
-  ctx.fillStyle = a.isPlayer ? "#22d3ee" : `hsl(${a.hue} 90% 70%)`;
-  ctx.fillRect(4, -3, 5, 6);
-
-  // gun
-  const w = weaponOf(a);
-  ctx.fillStyle = w.color;
-  ctx.fillRect(10, -2.5, 16, 5);
   ctx.restore();
 
-  // name
-  ctx.fillStyle = a.isPlayer ? "#67e8f9" : "#cbd5e1";
-  ctx.font = "600 11px Manrope, sans-serif";
+  // nametag
+  ctx.fillStyle = "#67e8f9";
+  ctx.font = "700 12px Chakra Petch, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(a.name, x, y - 22);
+  ctx.fillText(p.name, x, y - 64);
+}
 
-  // hp
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.fillRect(x - 16, y - 18, 32, 4);
-  ctx.fillStyle = a.isPlayer ? "#4ade80" : "#fb7185";
-  ctx.fillRect(x - 16, y - 18, 32 * clamp(a.hp / a.maxHp, 0, 1), 4);
+function drawMonster(m) {
+  if (!m.alive) return;
+  const x = m.x - cam.x;
+  const y = m.y - cam.y;
+  if (x < -100 || x > W + 100 || y < -120 || y > H + 80) return;
+
+  const bob = Math.sin(m.anim * 4) * (m.boss ? 3 : 2);
+  ctx.save();
+  ctx.translate(x, y + bob);
+  if (m.hitFlash > 0) ctx.filter = "brightness(2)";
+
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(0, 6, m.w * 0.45, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (m.typeId === "slime") {
+    ctx.fillStyle = m.color;
+    ctx.beginPath();
+    ctx.ellipse(0, -8, m.w * 0.45, m.h * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#052e16";
+    ctx.beginPath();
+    ctx.arc(-6 * m.facing, -12, 3, 0, Math.PI * 2);
+    ctx.arc(4 * m.facing, -12, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (m.typeId === "wolf") {
+    ctx.fillStyle = m.color;
+    roundRect(-m.w / 2, -m.h, m.w, m.h * 0.7, 8);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(m.facing * 16, -m.h * 0.7, 12, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(m.facing * 20, -m.h * 0.75, 8, 3);
+  } else {
+    // biped: skeleton / brute / bosses
+    ctx.fillStyle = m.color;
+    roundRect(-m.w * 0.28, -m.h * 0.75, m.w * 0.56, m.h * 0.55, 6);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, -m.h * 0.85, m.boss ? 16 : 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = m.boss ? "#7f1d1d" : "#0f172a";
+    ctx.beginPath();
+    ctx.arc(-5, -m.h * 0.88, 2.5, 0, Math.PI * 2);
+    ctx.arc(5, -m.h * 0.88, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (m.boss) {
+      ctx.strokeStyle = "rgba(251,191,36,0.65)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -m.h * 0.5, m.w * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  ctx.filter = "none";
+  ctx.restore();
+
+  // hp bar
+  const bw = Math.max(28, m.w);
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(x - bw / 2, y - m.h - 14, bw, 5);
+  ctx.fillStyle = m.boss ? "#fbbf24" : "#fb7185";
+  ctx.fillRect(x - bw / 2, y - m.h - 14, bw * clamp(m.hp / m.maxHp, 0, 1), 5);
+
+  ctx.fillStyle = m.boss ? "#fde68a" : "#cbd5e1";
+  ctx.font = m.boss ? "700 12px Orbitron, sans-serif" : "600 10px Manrope, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(m.name, x, y - m.h - 18);
+}
+
+function drawDrop(d) {
+  const x = d.x - cam.x;
+  const y = d.y - cam.y + Math.sin(d.bob) * 3;
+  if (x < -20 || x > W + 20 || y < -20 || y > H + 20) return;
+  if (d.kind === "gold") {
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fde68a";
+    ctx.beginPath();
+    ctx.arc(x - 2, y - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (d.kind === "heart") {
+    ctx.fillStyle = "#fb7185";
+    ctx.beginPath();
+    ctx.arc(x - 4, y, 5, 0, Math.PI * 2);
+    ctx.arc(x + 4, y, 5, 0, Math.PI * 2);
+    ctx.moveTo(x - 8, y + 2);
+    ctx.lineTo(x, y + 12);
+    ctx.lineTo(x + 8, y + 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#b45309";
+    ctx.fillRect(x - 10, y - 6, 20, 14);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(x - 10, y - 10, 20, 6);
+  }
 }
 
 function roundRect(x, y, w, h, r) {
@@ -633,113 +797,35 @@ function roundRect(x, y, w, h, r) {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, W, H);
+  drawGround();
 
-  // ground
-  ctx.fillStyle = "#0a121c";
-  ctx.fillRect(0, 0, W, H);
-
-  const grid = 50;
-  const ox = -(cam.x % grid);
-  const oy = -(cam.y % grid);
-  ctx.strokeStyle = "rgba(103,232,249,0.05)";
-  ctx.lineWidth = 1;
-  for (let x = ox; x < W; x += grid) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, H);
-    ctx.stroke();
+  // depth sort props + actors by y
+  const sprites = [];
+  for (const t of state.trees) sprites.push({ y: t.y, draw: () => drawTree(t) });
+  for (const r of state.rocks) sprites.push({ y: r.y, draw: () => drawRock(r) });
+  for (const d of state.drops) sprites.push({ y: d.y, draw: () => drawDrop(d) });
+  for (const m of state.monsters) {
+    if (m.alive) sprites.push({ y: m.y, draw: () => drawMonster(m) });
   }
-  for (let y = oy; y < H; y += grid) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
+  if (state.player) sprites.push({ y: state.player.y, draw: () => drawHero(state.player) });
+  sprites.sort((a, b) => a.y - b.y);
+  for (const s of sprites) s.draw();
 
-  // soft zones
-  for (let i = 0; i < 6; i++) {
-    const zx = ((i * 173) % WORLD) - cam.x;
-    const zy = ((i * 251) % WORLD) - cam.y;
-    const grd = ctx.createRadialGradient(zx, zy, 10, zx, zy, 180);
-    grd.addColorStop(0, "rgba(34,211,238,0.05)");
-    grd.addColorStop(1, "transparent");
-    ctx.fillStyle = grd;
-    ctx.fillRect(zx - 180, zy - 180, 360, 360);
-  }
-
-  // obstacles
-  for (const o of state.obstacles) {
-    const x = o.x - cam.x;
-    const y = o.y - cam.y;
-    if (x < -80 || y < -80 || x > W + 80 || y > H + 80) continue;
-    ctx.fillStyle = o.kind === "crate" ? "#1e293b" : "#334155";
-    ctx.strokeStyle = o.kind === "crate" ? "#f59e0b55" : "#64748b88";
-    ctx.lineWidth = 2;
-    ctx.fillRect(x - o.w / 2, y - o.h / 2, o.w, o.h);
-    ctx.strokeRect(x - o.w / 2, y - o.h / 2, o.w, o.h);
-  }
-
-  // loot
-  for (const l of state.loot) {
-    const x = l.x - cam.x;
-    const y = l.y - cam.y;
-    if (x < -20 || y < -20 || x > W + 20 || y > H + 20) continue;
-    ctx.fillStyle = l.color;
+  for (const e of state.effects) {
+    ctx.globalAlpha = clamp(e.life * 2, 0, 1);
+    ctx.fillStyle = e.color;
     ctx.beginPath();
-    ctx.arc(x, y, l.r + Math.sin(state.time * 4 + l.x) * 1.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.beginPath();
-    ctx.arc(x - 2, y - 2, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  for (const pt of state.particles) {
-    ctx.globalAlpha = clamp(pt.life * 2, 0, 1);
-    ctx.fillStyle = pt.color;
-    ctx.beginPath();
-    ctx.arc(pt.x - cam.x, pt.y - cam.y, pt.r, 0, Math.PI * 2);
+    ctx.arc(e.x - cam.x, e.y - cam.y, e.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
 
-  for (const b of state.bullets) {
-    ctx.fillStyle = b.color;
-    ctx.shadowColor = b.color;
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.arc(b.x - cam.x, b.y - cam.y, b.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  for (const b of state.bots) drawActor(b);
-  if (state.player) drawActor(state.player);
-
-  drawMinimap();
-}
-
-function drawMinimap() {
-  mctx.clearRect(0, 0, 120, 120);
-  mctx.fillStyle = "#071018";
-  mctx.fillRect(0, 0, 120, 120);
-  const s = 120 / WORLD;
-  mctx.fillStyle = "#1e293b";
-  for (const o of state.obstacles) {
-    mctx.fillRect(o.x * s - 1, o.y * s - 1, 2, 2);
-  }
-  mctx.fillStyle = "#fb7185";
-  for (const b of state.bots) {
-    if (!b.alive) continue;
-    mctx.fillRect(b.x * s - 1, b.y * s - 1, 2, 2);
-  }
-  if (state.player?.alive) {
-    mctx.fillStyle = "#67e8f9";
-    mctx.fillRect(state.player.x * s - 2, state.player.y * s - 2, 4, 4);
-  }
-  mctx.strokeStyle = "rgba(103,232,249,0.35)";
-  mctx.strokeRect(cam.x * s, cam.y * s, W * s, H * s);
+  // vignette
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.75);
+  vg.addColorStop(0, "transparent");
+  vg.addColorStop(1, "rgba(0,0,0,0.35)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
 }
 
 function loop(ts) {
@@ -752,182 +838,112 @@ function loop(ts) {
 
 function renderShop() {
   const p = state.player;
-  ui.shopScrap.textContent = String(p.scrap);
+  ui.shopGold.textContent = String(p.gold);
   ui.shopList.innerHTML = "";
 
-  if (shopTab === "weapons") {
-    for (const w of Object.values(WEAPONS)) {
-      if (w.id === "pistol") continue;
-      const owned = !!p.owned[w.id];
-      const row = document.createElement("div");
-      row.className = "shop-item";
-      row.innerHTML = `
-        <div>
-          <h3>${w.name}</h3>
-          <p>Урон ${w.dmg} · скорость ${Math.round(1 / w.rate)}/с</p>
-        </div>
-      `;
-      const btn = document.createElement("button");
-      btn.className = "shop-buy";
-      btn.textContent = owned ? (p.weaponId === w.id ? "Надето" : "Надеть") : `${w.price} лом`;
-      btn.disabled = owned ? p.weaponId === w.id : p.scrap < w.price;
-      btn.onclick = () => {
-        if (owned) {
-          p.weaponId = w.id;
-        } else if (p.scrap >= w.price) {
-          p.scrap -= w.price;
-          p.owned[w.id] = true;
-          p.weaponId = w.id;
-          toast(`Куплено: ${w.name}`);
-        }
-        renderShop();
-        updateHud();
-      };
-      row.appendChild(btn);
-      ui.shopList.appendChild(row);
-    }
-  }
-
-  if (shopTab === "upgrades") {
-    const cost = 40 + p.weaponLvl * 25;
+  for (const w of WEAPONS) {
+    if (w.id === "dagger") continue;
+    const owned = !!p.owned[w.id];
     const row = document.createElement("div");
     row.className = "shop-item";
-    row.innerHTML = `
-      <div>
-        <h3>Улучшить оружие</h3>
-        <p>Сейчас ур.${p.weaponLvl} → ур.${Math.min(8, p.weaponLvl + 1)} · +урон и скорострельность</p>
-      </div>
-    `;
+    row.innerHTML = `<div><h3>${w.name}</h3><p>Урон ${w.dmg} · досягаемость ${w.reach || 48}</p></div>`;
     const btn = document.createElement("button");
     btn.className = "shop-buy";
-    btn.textContent = p.weaponLvl >= 8 ? "MAX" : `${cost} лом`;
-    btn.disabled = p.weaponLvl >= 8 || p.scrap < cost;
+    btn.textContent = owned ? (p.weaponId === w.id ? "В руках" : "Взять") : `${w.price} ◆`;
+    btn.disabled = owned ? p.weaponId === w.id : p.gold < w.price;
     btn.onclick = () => {
-      if (p.weaponLvl >= 8 || p.scrap < cost) return;
-      p.scrap -= cost;
-      p.weaponLvl += 1;
-      toast(`Оружие ур.${p.weaponLvl}`);
+      if (owned) p.weaponId = w.id;
+      else if (p.gold >= w.price) {
+        p.gold -= w.price;
+        p.owned[w.id] = true;
+        p.weaponId = w.id;
+        toast(`Куплено: ${w.name}`);
+      }
       renderShop();
       updateHud();
     };
     row.appendChild(btn);
     ui.shopList.appendChild(row);
+  }
 
-    const hpCost = 70;
-    const row2 = document.createElement("div");
-    row2.className = "shop-item";
-    row2.innerHTML = `<div><h3>Усилить корпус</h3><p>Макс. HP +20 (сейчас ${p.maxHp})</p></div>`;
-    const btn2 = document.createElement("button");
-    btn2.className = "shop-buy";
-    btn2.textContent = `${hpCost} лом`;
-    btn2.disabled = p.scrap < hpCost || p.maxHp >= 200;
-    btn2.onclick = () => {
-      if (p.scrap < hpCost || p.maxHp >= 200) return;
-      p.scrap -= hpCost;
-      p.maxHp += 20;
-      p.hp += 20;
-      toast("Корпус усилен");
+  const heals = [
+    { name: "Зелье жизни", desc: "+50 HP", cost: 20, fn: () => (p.hp = Math.min(p.maxHp, p.hp + 50)) },
+    { name: "Эликсир силы", desc: "+1 уровень оружия (бонус к урону через lvl)", cost: 80, fn: () => gainXp(p, xpToLevel(p.level)) },
+  ];
+  for (const it of heals) {
+    const row = document.createElement("div");
+    row.className = "shop-item";
+    row.innerHTML = `<div><h3>${it.name}</h3><p>${it.desc}</p></div>`;
+    const btn = document.createElement("button");
+    btn.className = "shop-buy";
+    btn.textContent = `${it.cost} ◆`;
+    btn.disabled = p.gold < it.cost;
+    btn.onclick = () => {
+      if (p.gold < it.cost) return;
+      p.gold -= it.cost;
+      it.fn();
+      toast(it.name);
       renderShop();
       updateHud();
     };
-    row2.appendChild(btn2);
-    ui.shopList.appendChild(row2);
-  }
-
-  if (shopTab === "consumables") {
-    const items = [
-      { name: "Аптечка", desc: "+40 HP", cost: 25, fn: () => (p.hp = Math.min(p.maxHp, p.hp + 40)) },
-      { name: "Сброс щита", desc: "Мгновенный щит 3с", cost: 35, fn: () => (p.shieldT = 3) },
-      { name: "Ящик лома", desc: "+50 лома", cost: 0, freeOnce: true, fn: () => (p.scrap += 50) },
-    ];
-    for (const it of items) {
-      const row = document.createElement("div");
-      row.className = "shop-item";
-      row.innerHTML = `<div><h3>${it.name}</h3><p>${it.desc}</p></div>`;
-      const btn = document.createElement("button");
-      btn.className = "shop-buy";
-      btn.textContent = it.cost ? `${it.cost} лом` : "Бесплатно";
-      btn.disabled = it.cost > 0 && p.scrap < it.cost;
-      btn.onclick = () => {
-        if (it.cost > 0) {
-          if (p.scrap < it.cost) return;
-          p.scrap -= it.cost;
-        }
-        it.fn();
-        toast(it.name);
-        renderShop();
-        updateHud();
-      };
-      row.appendChild(btn);
-      ui.shopList.appendChild(row);
-    }
+    row.appendChild(btn);
+    ui.shopList.appendChild(row);
   }
 }
 
 function startGame() {
-  const name = (ui.name.value || "Оператор").trim().slice(0, 14);
+  const name = (ui.name.value || "Странник").trim().slice(0, 14);
   buildWorld();
-  state.player = makeActor(name, true);
-  state.player.owned = { pistol: true };
+  state.player = makePlayer(name);
   ui.boot.hidden = true;
   ui.dead.hidden = true;
   ui.hud.hidden = false;
   ui.shop.hidden = true;
   if (matchMedia("(pointer: coarse)").matches) ui.touch.hidden = false;
   running = true;
-  toast(`Спавн: ${state.player.x | 0}, ${state.player.y | 0}`);
+  toast(`Вы появились в мире · ${state.player.x | 0}, ${state.player.y | 0}`);
   updateHud();
 }
 
 function respawn() {
-  const name = state.player?.name || "Оператор";
-  const scrapKeep = Math.floor((state.player?.scrap || 0) * 0.5);
-  const owned = { ...(state.player?.owned || { pistol: true }) };
-  const lvl = Math.max(1, (state.player?.weaponLvl || 1) - 1);
-  state.player = makeActor(name, true);
-  state.player.scrap = scrapKeep;
-  state.player.owned = owned;
-  state.player.weaponId = owned.laser
-    ? "laser"
-    : owned.rifle
-      ? "rifle"
-      : owned.shotgun
-        ? "shotgun"
-        : owned.smg
-          ? "smg"
-          : "pistol";
-  state.player.weaponLvl = lvl;
+  const old = state.player;
+  state.player = makePlayer(old.name);
+  state.player.gold = Math.floor(old.gold * 0.6);
+  state.player.level = Math.max(1, old.level - 1);
+  state.player.owned = { ...old.owned };
+  state.player.weaponId = old.weaponId;
+  state.player.maxHp = 100 + (state.player.level - 1) * 12;
+  state.player.hp = state.player.maxHp;
   ui.dead.hidden = true;
   running = true;
-  toast("Респавн");
+  toast("Вы воскресли");
 }
 
-// input
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === "e") pickupNearest();
+  if (e.code === "Space") {
+    e.preventDefault();
+    attackHeld = true;
+    tryAttack();
+  }
+  if (e.key.toLowerCase() === "e") pickup();
   if (e.key.toLowerCase() === "b") {
     ui.shop.hidden = !ui.shop.hidden;
     if (!ui.shop.hidden) renderShop();
   }
-  if (e.key === "1") useAbility("dash");
-  if (e.key === "2") useAbility("shield");
-  if (e.key === "3") useAbility("pulse");
-  if (e.key === "4") useAbility("heal");
+  if (e.key === "1") useDash();
   if (e.key === "Escape") ui.shop.hidden = true;
 });
 window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
-});
-canvas.addEventListener("mousemove", (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
+  if (e.code === "Space") attackHeld = false;
 });
 canvas.addEventListener("mousedown", () => {
-  mouse.down = true;
+  attackHeld = true;
+  tryAttack();
 });
 window.addEventListener("mouseup", () => {
-  mouse.down = false;
+  attackHeld = false;
 });
 
 document.getElementById("btn-start").onclick = startGame;
@@ -939,38 +955,26 @@ document.getElementById("btn-shop").onclick = () => {
 document.getElementById("shop-close").onclick = () => {
   ui.shop.hidden = true;
 };
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.onclick = () => {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("is-on"));
-    tab.classList.add("is-on");
-    shopTab = tab.dataset.tab;
-    renderShop();
-  };
-});
 
-// touch stick
-const stick = ui.stick;
-const knob = ui.stickKnob;
+// touch
 let stickId = null;
-stick.addEventListener("pointerdown", (e) => {
+ui.stick.addEventListener("pointerdown", (e) => {
   stickId = e.pointerId;
-  stick.setPointerCapture(stickId);
+  ui.stick.setPointerCapture(stickId);
   moveStick(e);
 });
-stick.addEventListener("pointermove", (e) => {
+ui.stick.addEventListener("pointermove", (e) => {
   if (e.pointerId === stickId) moveStick(e);
 });
-stick.addEventListener("pointerup", () => {
+ui.stick.addEventListener("pointerup", () => {
   stickId = null;
   stickVec = { x: 0, y: 0 };
-  knob.style.transform = "translate(0,0)";
+  ui.stickKnob.style.transform = "translate(0,0)";
 });
 function moveStick(e) {
-  const rect = stick.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  let dx = e.clientX - cx;
-  let dy = e.clientY - cy;
+  const rect = ui.stick.getBoundingClientRect();
+  let dx = e.clientX - (rect.left + rect.width / 2);
+  let dy = e.clientY - (rect.top + rect.height / 2);
   const max = 36;
   const len = Math.hypot(dx, dy) || 1;
   if (len > max) {
@@ -978,18 +982,16 @@ function moveStick(e) {
     dy = (dy / len) * max;
   }
   stickVec = { x: dx / max, y: dy / max };
-  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  ui.stickKnob.style.transform = `translate(${dx}px,${dy}px)`;
 }
 const fireBtn = document.getElementById("fire-btn");
 fireBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
-  fireTouch = true;
+  attackHeld = true;
+  tryAttack();
 });
 fireBtn.addEventListener("pointerup", () => {
-  fireTouch = false;
-});
-fireBtn.addEventListener("pointercancel", () => {
-  fireTouch = false;
+  attackHeld = false;
 });
 
 window.addEventListener("resize", resize);
