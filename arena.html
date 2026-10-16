@@ -33,8 +33,8 @@
       </label>
       <button type="button" class="boot-btn" id="btn-start">В башню</button>
       <p class="boot-help">
-        <strong>WASD</strong> ходьба · <strong>мышь</strong> прицел · <strong>ЛКМ / Пробел</strong> атака<br />
-        <strong>Q/E</strong> оружие · <strong>F</strong> сундук/дверь · <strong>B</strong> лавка · <strong>1–4</strong> скиллы
+        <strong>WASD</strong> ходьба · <strong>мышь</strong> прицел · <strong>ЛКМ</strong> атака · <strong>Пробел</strong> прыжок<br />
+        <strong>Q/E</strong> оружие · <strong>F</strong> сундук/дверь · <strong>B</strong> лавка · <strong>2–4</strong> скиллы
       </p>
     </div>
 
@@ -92,15 +92,19 @@
     <canvas id="game"></canvas>
     <div class="touch" id="touch" hidden>
       <div class="stick" id="stick"><i id="stick-knob"></i></div>
-      <div class="touch-skills">
-        <button type="button" class="skill-btn" data-skill="1">1</button>
-        <button type="button" class="skill-btn" data-skill="2">2</button>
-        <button type="button" class="skill-btn" data-skill="3">3</button>
-        <button type="button" class="skill-btn" data-skill="4">4</button>
+      <div class="touch-actions">
+        <button type="button" class="act-btn" id="btn-weapon">⚔↔</button>
+        <button type="button" class="act-btn" id="btn-interact">F</button>
+        <button type="button" class="act-btn jump-btn" id="btn-jump">⬆</button>
+        <button type="button" class="fire-btn" id="fire-btn">АТАКА</button>
       </div>
-      <button type="button" class="fire-btn" id="fire-btn">⚔</button>
+      <div class="touch-skills">
+        <button type="button" class="skill-btn" data-skill="2">⚡</button>
+        <button type="button" class="skill-btn" data-skill="3">🔥</button>
+        <button type="button" class="skill-btn" data-skill="4">🩸</button>
+      </div>
     </div>
 
-    <script src="./arena.js?v=33"></script>
+    <script src="./arena.js?v=34"></script>
   </body>
 </html>

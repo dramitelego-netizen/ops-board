@@ -372,24 +372,55 @@
 
 .touch-skills {
   position: absolute;
-  right: 110px;
-  bottom: 28px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  right: 18px;
+  bottom: 168px;
+  display: flex;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .skill-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   border: 1px solid rgba(103, 232, 249, 0.35);
-  background: rgba(10, 16, 26, 0.85);
+  background: rgba(10, 16, 26, 0.88);
   color: #eef3f8;
-  font-family: "Orbitron", sans-serif;
-  font-weight: 700;
+  font-size: 1.2rem;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.touch-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 20px;
+  display: grid;
+  grid-template-columns: 56px 56px;
+  grid-template-rows: 56px 56px 88px;
+  gap: 10px;
+  pointer-events: auto;
+  align-items: end;
+}
+
+.act-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  background: rgba(10, 16, 26, 0.88);
+  color: #eef3f8;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.jump-btn {
+  border-color: rgba(103, 232, 249, 0.55);
+  background: rgba(34, 211, 238, 0.22);
+  color: #67e8f9;
+  font-size: 1.2rem;
 }
 
 .hud-chip,
@@ -647,39 +678,44 @@
 
 .stick {
   position: absolute;
-  left: 24px;
-  bottom: 24px;
-  width: 110px;
-  height: 110px;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   pointer-events: auto;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.25);
 }
 
 .stick i {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
   border-radius: 50%;
-  background: rgba(103, 232, 249, 0.45);
+  background: rgba(103, 232, 249, 0.55);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
 }
 
 .fire-btn {
-  position: absolute;
-  right: 28px;
-  bottom: 36px;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  border: 1px solid rgba(251, 113, 133, 0.45);
-  background: rgba(239, 68, 68, 0.35);
-  font-size: 1.4rem;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 88px;
+  border-radius: 22px;
+  border: 1px solid rgba(251, 113, 133, 0.5);
+  background: linear-gradient(180deg, rgba(251, 113, 133, 0.45), rgba(185, 28, 28, 0.55));
+  color: #fff;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   pointer-events: auto;
   cursor: pointer;
+  box-shadow: 0 10px 28px rgba(185, 28, 28, 0.35);
 }
 
 @media (pointer: fine) {

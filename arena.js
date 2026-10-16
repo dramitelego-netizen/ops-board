@@ -28,11 +28,13 @@ const WEAPONS = [
 ];
 
 const ABILITIES = [
-  { id: "dash", key: "1", name: "Рывок", icon: "💨", cd: 3.2, cls: "dash" },
+  { id: "dash", key: "␣", name: "Прыжок", icon: "⬆", cd: 2.6, cls: "dash" },
   { id: "bolt", key: "2", name: "Молния", icon: "⚡", cd: 5.5, cls: "bolt" },
   { id: "nova", key: "3", name: "Круг", icon: "🔥", cd: 7.2, cls: "nova" },
   { id: "rage", key: "4", name: "Ярость", icon: "🩸", cd: 11, cls: "rage" },
 ];
+
+const isTouchUI = () => matchMedia("(pointer: coarse)").matches;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -159,6 +161,8 @@ function makePlayer(name) {
     invuln: 0,
     anim: 0,
     moving: false,
+    moveAng: -Math.PI / 2,
+    jumpY: 0,
     kills: 0,
     trail: [],
   };
@@ -495,13 +499,17 @@ function useAbility(id) {
   const pow = 1 + (p.abilityLvl[id] || 0) * 0.14;
 
   if (id === "dash") {
-    p.dashT = 0.22;
-    p.invuln = 0.28;
-    p.x += Math.cos(p.aim) * (120 + (p.abilityLvl.dash || 0) * 15);
-    p.y += Math.sin(p.aim) * (120 + (p.abilityLvl.dash || 0) * 15);
+    const ang = p.moving ? p.moveAng : p.aim;
+    const jumpDist = 130 + (p.abilityLvl.dash || 0) * 18;
+    p.dashT = 0.24;
+    p.invuln = 0.3;
+    p.jumpY = 36;
+    p.x += Math.cos(ang) * jumpDist;
+    p.y += Math.sin(ang) * jumpDist;
     clampToCircle(p);
-    burst(p.x, p.y, "#67e8f9", 12, 100);
-    toast("💨 Рывок");
+    burst(p.x, p.y, "#67e8f9", 14, 120);
+    ring(p.x, p.y, "#67e8f9", 55, 0.3);
+    toast("⬆ Прыжок");
   }
   if (id === "bolt") {
     const targets = state.monsters.filter((m) => m.alive && dist(m, p) < 280).sort((a, b) => dist(a, p) - dist(b, p)).slice(0, 4 + (p.abilityLvl.bolt || 0));
@@ -647,13 +655,8 @@ function update(dt) {
   p.dashT = Math.max(0, p.dashT - dt);
   p.rageT = Math.max(0, p.rageT - dt);
   p.invuln = Math.max(0, p.invuln - dt);
+  p.jumpY = Math.max(0, p.jumpY - dt * 110);
   for (const k of Object.keys(p.cds)) p.cds[k] = Math.max(0, p.cds[k] - dt);
-
-  // aim from mouse
-  const worldMx = mouse.x + cam.x;
-  const worldMy = mouse.y + cam.y;
-  p.aim = Math.atan2(worldMy - p.y, worldMx - p.x);
-  p.facing = Math.cos(p.aim) >= 0 ? 1 : -1;
 
   let mx = 0;
   let my = 0;
@@ -667,6 +670,7 @@ function update(dt) {
   p.moving = len > 0.08;
   p.anim += dt * (p.moving ? 11 : 2.2);
   if (p.moving) {
+    p.moveAng = Math.atan2(my, mx);
     const sp = 195 * (p.dashT > 0 ? 2.5 : 1) * (p.rageT > 0 ? 1.2 : 1);
     p.x += (mx / len) * sp * dt;
     p.y += (my / len) * sp * dt;
@@ -674,6 +678,17 @@ function update(dt) {
     p.trail.push({ x: p.x, y: p.y, life: 0.28 });
     if (p.trail.length > 12) p.trail.shift();
   }
+
+  // PC: aim with mouse. Mobile: aim with stick / last move
+  if (isTouchUI()) {
+    if (Math.hypot(stick.x, stick.y) > 0.15) p.aim = Math.atan2(stick.y, stick.x);
+    else if (p.moving) p.aim = p.moveAng;
+  } else {
+    const worldMx = mouse.x + cam.x;
+    const worldMy = mouse.y + cam.y;
+    p.aim = Math.atan2(worldMy - p.y, worldMx - p.x);
+  }
+  p.facing = Math.cos(p.aim) >= 0 ? 1 : -1;
   for (const t of p.trail) t.life -= dt;
   p.trail = p.trail.filter((t) => t.life > 0);
 
@@ -838,7 +853,7 @@ function drawWeapon(wpn, f, swing) {
 
 function drawHero(p) {
   const x = p.x - cam.x;
-  const y = p.y - cam.y;
+  const y = p.y - cam.y - (p.jumpY || 0);
   const f = p.facing;
   const wpn = weaponOf(p);
   const bob = p.moving ? Math.sin(p.anim) * 3 : Math.sin(state.time * 2.2);
@@ -1165,7 +1180,7 @@ function startGame() {
   ui.clear.hidden = true;
   ui.hud.hidden = false;
   ui.shop.hidden = true;
-  if (matchMedia("(pointer: coarse)").matches) ui.touch.hidden = false;
+  if (isTouchUI()) ui.touch.hidden = false;
   running = true;
   updateHud();
   renderAbilities();
@@ -1194,8 +1209,8 @@ window.addEventListener("keydown", (e) => {
   keys[k] = true;
   if (["w", "a", "s", "d", "ц", "ф", "ы", "в", " "].includes(k) || e.code === "Space") e.preventDefault();
   if (e.code === "Space") {
-    attackHeld = true;
-    tryAttack();
+    useAbility("dash"); // прыжок на ПК
+    return;
   }
   if (k === "f") tryInteract();
   if (k === "q") cycleWeapon(-1);
@@ -1212,7 +1227,6 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
-  if (e.code === "Space") attackHeld = false;
 });
 canvas.addEventListener("mousemove", (e) => {
   mouse.x = e.clientX;
@@ -1263,7 +1277,7 @@ function moveStick(e) {
   const rect = ui.stick.getBoundingClientRect();
   let dx = e.clientX - (rect.left + rect.width / 2);
   let dy = e.clientY - (rect.top + rect.height / 2);
-  const max = 36;
+  const max = 48;
   const len = Math.hypot(dx, dy) || 1;
   if (len > max) {
     dx = (dx / len) * max;
@@ -1280,10 +1294,25 @@ document.getElementById("fire-btn").addEventListener("pointerdown", (e) => {
 document.getElementById("fire-btn").addEventListener("pointerup", () => {
   attackHeld = false;
 });
+document.getElementById("fire-btn").addEventListener("pointercancel", () => {
+  attackHeld = false;
+});
+document.getElementById("btn-jump").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  useAbility("dash");
+});
+document.getElementById("btn-interact").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  tryInteract();
+});
+document.getElementById("btn-weapon").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  cycleWeapon(1);
+});
 document.querySelectorAll(".skill-btn").forEach((btn) => {
   btn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    useAbility({ 1: "dash", 2: "bolt", 3: "nova", 4: "rage" }[btn.dataset.skill]);
+    useAbility({ 2: "bolt", 3: "nova", 4: "rage" }[btn.dataset.skill]);
   });
 });
 
