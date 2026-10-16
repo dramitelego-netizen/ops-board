@@ -12,6 +12,99 @@ const GATE_CODE = [1, 3, 3, 7];
 
 const canvas = document.getElementById("c");
 
+/** авто-low mode: слабые телефоны / VK WebView */
+function isLikelyMobile() {
+  const ua = navigator.userAgent || "";
+  if (/Android|iPhone|iPad|iPod|Mobile|VKAndroid|VKiOS/i.test(ua)) return true;
+  return navigator.maxTouchPoints > 1 && Math.min(screen.width || 0, screen.height || 0) < 900;
+}
+
+function readQualityOverride() {
+  try {
+    const q = new URLSearchParams(location.search).get("quality");
+    if (q === "low" || q === "high") return q;
+    const ls = localStorage.getItem("safe_quality");
+    if (ls === "low" || ls === "high") return ls;
+  } catch (_) {}
+  return null;
+}
+
+function detectAutoLowMode() {
+  const override = readQualityOverride();
+  if (override === "low") return true;
+  if (override === "high") return false;
+
+  if (!isLikelyMobile()) return false;
+
+  const ua = navigator.userAgent || "";
+  const android = /Android/i.test(ua);
+  const mem = navigator.deviceMemory; // Chrome: ГБ ОЗУ
+  const cores = navigator.hardwareConcurrency || 8;
+  const dpr = window.devicePixelRatio || 1;
+  const saveData = !!(navigator.connection && navigator.connection.saveData);
+  const cssPixels = (screen.width || 1) * (screen.height || 1);
+
+  if (saveData) return true;
+  if (typeof mem === "number" && mem <= 4) return true;
+  if (cores <= 4) return true;
+  // Android без deviceMemory (часто VK WebView) — сразу low
+  if (android && typeof mem !== "number") return true;
+  // Android с высоким DPR и скромной памятью
+  if (android && dpr >= 2.5 && (typeof mem !== "number" || mem <= 6)) return true;
+  if (android && cssPixels >= 2_200_000 && dpr >= 2 && (typeof mem !== "number" || mem <= 6)) {
+    return true;
+  }
+  // iOS/прочие: не форсим low (флагманы тянут); если лагает — включит FPS-адаптер
+  return false;
+}
+
+let perfLow = detectAutoLowMode();
+let perfMaxDpr = perfLow ? 1 : Math.min(2, isLikelyMobile() ? 1.5 : 2);
+let perfFpsFrames = 0;
+let perfFpsLastT = 0;
+let perfFpsAcc = 0;
+let perfAdaptChecked = false;
+let perfFrame = 0;
+
+function applyPerfGraphics() {
+  if (!renderer) return;
+  renderer.shadowMap.enabled = !perfLow;
+  if (perfLow) {
+    renderer.shadowMap.type = THREE.BasicShadowMap;
+    renderer.toneMappingExposure = 1.12;
+  } else {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMappingExposure = 1.08;
+  }
+  if (keyLight) {
+    keyLight.castShadow = !perfLow;
+    if (!perfLow) keyLight.shadow.mapSize.set(2048, 2048);
+  }
+  if (spot) {
+    spot.castShadow = !perfLow;
+    if (!perfLow) spot.shadow.mapSize.set(1024, 1024);
+  }
+  scene?.traverse?.((obj) => {
+    if (obj.isLight && obj.isSpotLight) {
+      obj.castShadow = !perfLow && obj.userData.wantShadow !== false;
+    }
+    if (obj.isLight && obj.isDirectionalLight) {
+      obj.castShadow = !perfLow && obj.userData.wantShadow !== false;
+    }
+  });
+  perfMaxDpr = perfLow ? 1 : Math.min(2, isLikelyMobile() ? 1.5 : 2);
+  fitViewport();
+}
+
+function enableLowMode(reason) {
+  if (perfLow) return;
+  perfLow = true;
+  try {
+    console.info("[safe] low mode:", reason || "auto");
+  } catch (_) {}
+  applyPerfGraphics();
+}
+
 let phase = "lobby"; // lobby → gate → vault
 let focus = null; // null = центр комнаты; иначе у объекта
 let entered = [];
@@ -360,15 +453,18 @@ const FOCUS = {
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: !perfLow,
   powerPreference: "high-performance",
   alpha: false,
 });
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = !perfLow;
+renderer.shadowMap.type = perfLow ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = perfLow ? 1.12 : 1.08;
+try {
+  console.info("[safe] perf:", perfLow ? "low" : "high", "dprMax", perfMaxDpr);
+} catch (_) {}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd8d4cc);
@@ -389,7 +485,7 @@ function getViewSize() {
 
 function fitViewport() {
   const { w, h } = getViewSize();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, perfMaxDpr);
   renderer.setPixelRatio(dpr);
   // false = не трогать CSS style автоматически (иначе на части телефонов тянет картинку)
   renderer.setSize(w, h, false);
@@ -1175,8 +1271,9 @@ let fillCool = null;
 
 keyLight = new THREE.DirectionalLight(0xffc878, 0.22);
 keyLight.position.set(2.5, 9, 22);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.userData.wantShadow = true;
+keyLight.castShadow = !perfLow;
+keyLight.shadow.mapSize.set(perfLow ? 512 : 2048, perfLow ? 512 : 2048);
 keyLight.shadow.camera.near = 1;
 keyLight.shadow.camera.far = 40;
 keyLight.shadow.camera.left = -8;
@@ -1190,8 +1287,9 @@ scene.add(keyLight);
 spot = new THREE.SpotLight(0xffc898, 5.5, 28, Math.PI / 6, 0.55, 1.2);
 spot.position.set(0, 5.8, 19.5);
 spot.target.position.set(0, 1.4, 16.6);
-spot.castShadow = true;
-spot.shadow.mapSize.set(1024, 1024);
+spot.userData.wantShadow = true;
+spot.castShadow = !perfLow;
+spot.shadow.mapSize.set(perfLow ? 512 : 1024, perfLow ? 512 : 1024);
 spot.shadow.bias = -0.0002;
 scene.add(spot, spot.target);
 
@@ -4786,8 +4884,9 @@ const fluoroHousing = new THREE.MeshStandardMaterial({
   const gateSpot = new THREE.SpotLight(0xd0e8ff, 0, 22, Math.PI / 5.2, 0.45, 1.15);
   gateSpot.position.set(0, 5.0, 9.5);
   gateSpot.target.position.set(0, 2.2, 5.5);
-  gateSpot.castShadow = true;
-  gateSpot.shadow.mapSize.set(1024, 1024);
+  gateSpot.userData.wantShadow = true;
+  gateSpot.castShadow = !perfLow;
+  gateSpot.shadow.mapSize.set(perfLow ? 512 : 1024, perfLow ? 512 : 1024);
   scene.add(gateSpot, gateSpot.target);
   hallLights.push({
     mats: [],
@@ -5039,8 +5138,9 @@ vault.add(new THREE.AmbientLight(0xfff4e8, 0.4));
 {
   const vKey = new THREE.DirectionalLight(0xffefd8, 0.9);
   vKey.position.set(2, 6, 4);
-  vKey.castShadow = true;
-  vKey.shadow.mapSize.set(1024, 1024);
+  vKey.userData.wantShadow = true;
+  vKey.castShadow = !perfLow;
+  vKey.shadow.mapSize.set(perfLow ? 512 : 1024, perfLow ? 512 : 1024);
   vKey.shadow.camera.near = 1;
   vKey.shadow.camera.far = 20;
   vKey.shadow.camera.left = -6;
@@ -5685,11 +5785,38 @@ document.addEventListener("visibilitychange", () => {
 function loop() {
   requestAnimationFrame(loop);
 
+  // авто-переход в low, если FPS держится низко ~2 сек
+  {
+    const now = performance.now();
+    if (!perfFpsLastT) perfFpsLastT = now;
+    const dt = now - perfFpsLastT;
+    perfFpsLastT = now;
+    if (dt > 0 && dt < 250) {
+      perfFpsAcc += dt;
+      perfFpsFrames += 1;
+      if (perfFpsAcc >= 2000) {
+        const fps = (perfFpsFrames * 1000) / perfFpsAcc;
+        perfFpsAcc = 0;
+        perfFpsFrames = 0;
+        if (!perfLow && !perfAdaptChecked && fps < 28) {
+          perfAdaptChecked = true;
+          enableLowMode(`fps ${fps.toFixed(0)}`);
+        } else if (perfLow) {
+          perfAdaptChecked = true;
+        }
+      }
+    }
+  }
+
   updateHallLights();
   updateWallClock();
   const _t = performance.now() * 0.001;
-  updateSecCamera(_t);
-  if (phase === "lobby") updateFuturumSign(_t);
+  perfFrame++;
+  // в low — реже тяжёлые декоративные апдейты
+  if (!perfLow || (perfFrame & 1) === 0) {
+    updateSecCamera(_t);
+    if (phase === "lobby") updateFuturumSign(_t);
+  }
 
   // входная дверь холла → коридор → ворота
   if (lobbyOpening) {
@@ -5773,13 +5900,19 @@ function loop() {
         avgFlicker += 0;
         continue;
       }
-      const wave =
-        1 +
-        Math.sin(t * 2.4 + L.phase) * 0.045 +
-        Math.sin(t * 7.3 + L.phase * 1.7) * 0.028 +
-        (Math.random() - 0.5) * 0.035;
-      const dip = Math.sin(t * 0.41 + L.phase) > 0.965 ? 0.68 : 1;
-      const f = Math.max(0.55, wave * dip);
+      let f;
+      if (perfLow) {
+        // без Math.random — стабильнее FPS на слабых GPU
+        f = 1 + Math.sin(t * 2.1 + L.phase) * 0.03;
+      } else {
+        const wave =
+          1 +
+          Math.sin(t * 2.4 + L.phase) * 0.045 +
+          Math.sin(t * 7.3 + L.phase * 1.7) * 0.028 +
+          (Math.random() - 0.5) * 0.035;
+        const dip = Math.sin(t * 0.41 + L.phase) > 0.965 ? 0.68 : 1;
+        f = Math.max(0.55, wave * dip);
+      }
       L.light.intensity = L.base * f;
       L.mat.emissiveIntensity = L.baseEmissive * f;
       avgFlicker += f;
