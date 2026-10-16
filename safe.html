@@ -3,27 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>FUTURUM · Хранилище</title>
-    <link rel="stylesheet" href="./safe.css?v=41" />
-    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=30"></script>
+    <script>
+      // VK на телефоне открывает другой .html в браузере.
+      // Сейф живёт на той же странице мини-аппа: index / ?view=safe
+      (function () {
+        try {
+          var u = new URL(location.href);
+          var target = new URL("./", u.href);
+          target.searchParams.set("view", "safe");
+          var host = u.searchParams.get("host");
+          if (host) target.searchParams.set("host", host);
+          location.replace(target.pathname + target.search + target.hash);
+        } catch (_) {
+          location.replace("./?view=safe");
+        }
+      })();
+    </script>
   </head>
   <body>
-    <canvas id="c"></canvas>
-    <button type="button" id="room-back" class="room-back" hidden>← Назад</button>
-    <button type="button" id="step-back" class="step-back" hidden>Отойти</button>
-    <button type="button" id="nav-left" class="side-nav side-nav-left" hidden disabled title="Скоро">←</button>
-    <button type="button" id="nav-right" class="side-nav side-nav-right" hidden>→ Код</button>
-    <div id="peephole-mask" class="peephole-mask" hidden aria-hidden="true"></div>
-
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        }
-      }
-    </script>
-    <script type="module" src="./safe.js?v=94"></script>
+    <p style="font-family: sans-serif; padding: 24px; color: #444">Открытие сейфа…</p>
   </body>
 </html>

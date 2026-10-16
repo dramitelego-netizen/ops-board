@@ -37,16 +37,17 @@ ngrok http 8787
 Добавь параметр `host` к ссылке мини-аппа / GitHub Pages:
 
 ```
-https://dramitelego-netizen.github.io/ops-board/safe.html?host=https://xxxx.trycloudflare.com
+https://dramitelego-netizen.github.io/ops-board/?view=safe&host=https://xxxx.trycloudflare.com
 ```
 
-В VK в настройках приложения можно указать URL с `?host=…`,  
-или один раз открыть такую ссылку — адрес сохранится в браузере.
+В VK URL приложения лучше оставить:
+`https://dramitelego-netizen.github.io/ops-board/`  
+Сейф открывается кнопкой внутри (тот же адрес + `?view=safe`), иначе телефон уводит в браузер.
 
 Проверка без VK (только свой ПК):
 
 ```
-http://127.0.0.1:5173/safe.html?host=http://127.0.0.1:8787
+http://127.0.0.1:5173/?view=safe&host=http://127.0.0.1:8787
 ```
 
 ## 4. Что видит табло
