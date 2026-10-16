@@ -1,62 +1,43 @@
-# Хост эвента FUTURUM Safe
+# Ты — хост эвента FUTURUM Safe
 
-Ты запускаешь хост на своём ПК. Все игроки (ПК и телефоны в VK) видят одно табло «В ИГРЕ СЕЙЧАС» и кто что открыл.
+Пока твой ПК онлайн и окна запущены, все игроки видят одно табло.
 
-## 1. Запусти хост
+## Запуск (2 окна)
 
-Двойной клик: `start-safe-host.bat`  
-или: `py safe-host.py`
+### Окно 1 — хост
+Двойной клик: **`start-safe-host.bat`**  
+Не закрывай.
 
-Локально: http://127.0.0.1:8787/
+### Окно 2 — туннель (HTTPS для телефонов / VK)
+Двойной клик: **`start-safe-tunnel.bat`**  
 
-## 2. Сделай HTTPS-ссылку (обязательно для VK и телефона)
+В консоли появится строка вида:
+`https://xxxxxxxx.lhr.life`
 
-Страница мини-аппа на `https://…`, поэтому хост тоже должен быть **https**.
+Скопируй её.
 
-### Вариант A — Cloudflare Tunnel (бесплатно)
+### Сообщить игру, куда стучаться
 
-1. Установи [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/)
-2. В новом окне терминала:
+**Вариант A (удобно для VK):**  
+1. `set-host-url.bat` → вставь ссылку туннеля  
+2. Залей `host.json` на GitHub (`git add/commit/push`)  
+3. В мини-аппе URL: `https://dramitelego-netizen.github.io/ops-board/safe.html`  
+   (без `?host=` — игра сама читает `host.json`)
 
-```bat
-cloudflared tunnel --url http://127.0.0.1:8787
+**Вариант B (быстро, без git):**  
+Открыть / прописать в VK:
+```
+https://dramitelego-netizen.github.io/ops-board/safe.html?host=https://xxxxxxxx.lhr.life
 ```
 
-3. Скопируй выданный URL вида `https://xxxx.trycloudflare.com`
+## Проверка
 
-### Вариант B — ngrok
+- На табло: `HOST ON`
+- Подвал: `общий хост · синхрон`
+- Второй телефон тоже должен появиться в «В ИГРЕ СЕЙЧАС»
 
-```bat
-ngrok http 8787
-```
+## Важно
 
-Скопируй `https://….ngrok-free.app`
-
-## 3. Открой игру с хостом
-
-Добавь параметр `host` к ссылке мини-аппа / GitHub Pages:
-
-## VK Mini App — прямая ссылка на сейф (рекомендуется)
-
-В настройках приложения укажи URL:
-
-```
-https://dramitelego-netizen.github.io/ops-board/safe.html
-```
-
-С хостом:
-
-```
-https://dramitelego-netizen.github.io/ops-board/safe.html?host=https://xxxx.trycloudflare.com
-```
-
-Так мини-апп сразу открывает сейф внутри VK, без кнопки и без перехода на другую страницу.
-
-Альтернатива (главная FUTURUM): `https://dramitelego-netizen.github.io/ops-board/`
-
-## 4. Что видит табло
-
-- кто сейчас в игре (заход + heartbeat)
-- последнее действие: открыл дверь / пропуск / круглую дверь / сейф
-
-Без хоста игра работает как раньше — только локальный список на устройстве.
+- Не закрывай оба окна, пока идёт эвент  
+- Бесплатный туннель `lhr.life` может отвалиться — тогда запусти туннель снова и обнови `host.json`  
+- Для стабильного эвента позже лучше обычный сервер (VPS), не туннель
