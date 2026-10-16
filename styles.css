@@ -113,8 +113,16 @@ body {
   max-height: 36%;
 }
 
-.game-link {
+.game-links {
   margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.game-link {
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
