@@ -75,8 +75,13 @@ let _hostHbTimer = 0;
 function resolveSafeHostUrl() {
   try {
     const q = new URLSearchParams(location.search);
-    const fromQ = (q.get("host") || "").trim();
+    let fromQ = (q.get("host") || "").trim();
     if (fromQ) {
+      try {
+        fromQ = decodeURIComponent(fromQ);
+      } catch {
+        /* keep raw */
+      }
       const clean = fromQ.replace(/\/$/, "");
       localStorage.setItem(SAFE_HOST_KEY, clean);
       return clean;
@@ -89,12 +94,42 @@ function resolveSafeHostUrl() {
 
 safeHostUrl = resolveSafeHostUrl();
 
+/** актуальный хост с GitHub Pages (VK часто отбрасывает ?host= из URL мини-аппа) */
+async function loadHostFromJson() {
+  try {
+    const res = await fetch(new URL("./host.json", location.href).href + "?t=" + Date.now(), {
+      cache: "no-store",
+      mode: "cors",
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const url = String(data?.url || "")
+      .trim()
+      .replace(/\/$/, "");
+    if (!url) return "";
+    safeHostUrl = url;
+    try {
+      localStorage.setItem(SAFE_HOST_KEY, url);
+    } catch {
+      /* ignore */
+    }
+    return url;
+  } catch {
+    return "";
+  }
+}
+
 async function hostFetch(path, body) {
   if (!safeHostUrl) return null;
   try {
     const res = await fetch(`${safeHostUrl}${path}`, {
       method: body ? "POST" : "GET",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers: body
+        ? {
+            "Content-Type": "application/json",
+            "Bypass-Tunnel-Reminder": "true",
+          }
+        : { "Bypass-Tunnel-Reminder": "true" },
       body: body ? JSON.stringify(body) : undefined,
       mode: "cors",
       cache: "no-store",
@@ -891,13 +926,7 @@ function saveEventPlayers() {
   }
 }
 
-function registerEventPlayer(user) {
-  // если есть хост — список общий, локальный кэш только запасной
-  if (safeHostUrl) {
-    hostJoin(user);
-    startHostSync();
-    return;
-  }
+function registerEventPlayerLocal(user) {
   loadEventPlayers();
   const now = Date.now();
   eventPlayers = eventPlayers.filter((p) => now - (p.at || 0) < 2 * 60 * 60 * 1000);
@@ -913,6 +942,41 @@ function registerEventPlayer(user) {
   else eventPlayers.unshift(entry);
   saveEventPlayers();
   if (typeof drawPlayersBoard === "function") drawPlayersBoard();
+}
+
+async function registerEventPlayer(user) {
+  // 1) ?host=  2) host.json с GitHub  3) localStorage  4) локально
+  if (!safeHostUrl) await loadHostFromJson();
+  else {
+    // даже если есть старый URL в localStorage — обновим с GitHub
+    await loadHostFromJson();
+  }
+
+  if (safeHostUrl) {
+    const data = await hostFetch("/api/join", {
+      id: String(user.id || "0"),
+      name: user.name || "Гость",
+      photo: user.photo || "",
+    });
+    if (data?.state) {
+      applyHostState(data.state);
+      startHostSync();
+      return;
+    }
+    // старый туннель мёртв — ещё раз host.json и повтор
+    await loadHostFromJson();
+    const retry = await hostFetch("/api/join", {
+      id: String(user.id || "0"),
+      name: user.name || "Гость",
+      photo: user.photo || "",
+    });
+    if (retry?.state) {
+      applyHostState(retry.state);
+      startHostSync();
+      return;
+    }
+  }
+  registerEventPlayerLocal(user);
 }
 
 function eventSecondsLeft() {
@@ -936,7 +1000,7 @@ async function loadVkUser() {
   } catch {
     /* вне VK */
   }
-  registerEventPlayer(vkUser);
+  await registerEventPlayer(vkUser);
   if (!vkUser.photo) {
     drawPassCard(vkUser, null);
     return;
