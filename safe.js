@@ -59,12 +59,114 @@ let lobbyDoorShake = 0;
 let vkUser = { name: "Гость", photo: "", id: "0" };
 
 /** эвент: дверь закрыта, пока не выйдет таймер (потом карта) */
-const EVENT_UNLOCK_SEC = 10;
+const EVENT_UNLOCK_SEC = 60;
 const EVENT_PLAYERS_KEY = "futurum_event_players_v1";
+const SAFE_HOST_KEY = "futurum_safe_host";
 const eventStartAt = performance.now();
 let doorEventReady = false; // таймер дошёл до 0
 let eventReadyAnnounced = false;
 let eventPlayers = []; // кто сейчас в игре
+let safeHostUrl = ""; // https://… туннель или http://127.0.0.1:8787
+let safeHostOnline = false;
+let safeHostEvents = [];
+let _hostPollTimer = 0;
+let _hostHbTimer = 0;
+
+function resolveSafeHostUrl() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const fromQ = (q.get("host") || "").trim();
+    if (fromQ) {
+      const clean = fromQ.replace(/\/$/, "");
+      localStorage.setItem(SAFE_HOST_KEY, clean);
+      return clean;
+    }
+    return (localStorage.getItem(SAFE_HOST_KEY) || "").trim().replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+safeHostUrl = resolveSafeHostUrl();
+
+async function hostFetch(path, body) {
+  if (!safeHostUrl) return null;
+  try {
+    const res = await fetch(`${safeHostUrl}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      mode: "cors",
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("host " + res.status);
+    const data = await res.json();
+    safeHostOnline = true;
+    return data;
+  } catch {
+    safeHostOnline = false;
+    return null;
+  }
+}
+
+function applyHostState(data) {
+  if (!data?.players) return;
+  eventPlayers = data.players.map((p) => ({
+    id: String(p.id || "0"),
+    name: p.name || "Игрок",
+    photo: p.photo || "",
+    at: Math.round((p.at || 0) * 1000),
+    last: p.last || "",
+  }));
+  safeHostEvents = Array.isArray(data.events) ? data.events : [];
+  if (typeof drawPlayersBoard === "function") drawPlayersBoard();
+}
+
+async function hostJoin(user) {
+  if (!safeHostUrl || !user) return;
+  const data = await hostFetch("/api/join", {
+    id: String(user.id || "0"),
+    name: user.name || "Гость",
+    photo: user.photo || "",
+  });
+  if (data?.state) applyHostState(data.state);
+}
+
+async function hostHeartbeat(user) {
+  if (!safeHostUrl || !user) return;
+  await hostFetch("/api/heartbeat", {
+    id: String(user.id || "0"),
+    name: user.name || "Гость",
+    photo: user.photo || "",
+  });
+}
+
+async function hostEvent(type, detail = "") {
+  if (!safeHostUrl) return;
+  const data = await hostFetch("/api/event", {
+    id: String(vkUser.id || "0"),
+    name: vkUser.name || "Гость",
+    photo: vkUser.photo || "",
+    type,
+    detail: detail || undefined,
+  });
+  if (data?.state) applyHostState(data.state);
+}
+
+async function hostPullState() {
+  if (!safeHostUrl) return;
+  const data = await hostFetch("/api/state");
+  if (data) applyHostState(data);
+}
+
+function startHostSync() {
+  if (!safeHostUrl) return;
+  hostPullState();
+  clearInterval(_hostPollTimer);
+  clearInterval(_hostHbTimer);
+  _hostPollTimer = setInterval(() => hostPullState(), 3000);
+  _hostHbTimer = setInterval(() => hostHeartbeat(vkUser), 20000);
+}
 
 /** стоять в центре / подойти ближе — фронтальный взгляд */
 const ROOMS = {
@@ -771,6 +873,8 @@ let passPhotoImg = null;
 let passAnim = 0; // 0 hidden → 1 shown
 
 function loadEventPlayers() {
+  // при общем хосте список приходит с сервера
+  if (safeHostUrl) return;
   try {
     eventPlayers = JSON.parse(localStorage.getItem(EVENT_PLAYERS_KEY) || "[]");
     if (!Array.isArray(eventPlayers)) eventPlayers = [];
@@ -788,9 +892,14 @@ function saveEventPlayers() {
 }
 
 function registerEventPlayer(user) {
+  // если есть хост — список общий, локальный кэш только запасной
+  if (safeHostUrl) {
+    hostJoin(user);
+    startHostSync();
+    return;
+  }
   loadEventPlayers();
   const now = Date.now();
-  // чистим «устаревших» (> 2 ч) — пока без бэкенда, локальный эвент
   eventPlayers = eventPlayers.filter((p) => now - (p.at || 0) < 2 * 60 * 60 * 1000);
   const idx = eventPlayers.findIndex((p) => String(p.id) === String(user.id));
   const entry = {
@@ -798,6 +907,7 @@ function registerEventPlayer(user) {
     name: user.name || "Гость",
     photo: user.photo || "",
     at: now,
+    last: "зашёл",
   };
   if (idx >= 0) eventPlayers[idx] = entry;
   else eventPlayers.unshift(entry);
@@ -3272,7 +3382,12 @@ function drawPlayersBoard() {
   ctx.font = "15px sans-serif";
   loadEventPlayers();
   const total = eventPlayers.length;
-  ctx.fillText(`FUTURUM EVENT  ·  ${total}`, 28, 72);
+  const hostTag = safeHostUrl
+    ? safeHostOnline
+      ? "HOST ON"
+      : "HOST …"
+    : "LOCAL";
+  ctx.fillText(`FUTURUM EVENT  ·  ${total}  ·  ${hostTag}`, 28, 72);
 
   // область списка
   ctx.save();
@@ -3334,7 +3449,8 @@ function drawPlayersBoard() {
     ctx.fillText((p.name || "Игрок").slice(0, 20), 110, cy - 4);
     ctx.fillStyle = me ? "#66dd88" : "#8a93a0";
     ctx.font = "14px sans-serif";
-    ctx.fillText(me ? "это вы" : `#${i + 1}  онлайн`, 110, cy + 18);
+    const sub = p.last ? String(p.last).slice(0, 28) : me ? "это вы" : `#${i + 1}  онлайн`;
+    ctx.fillText(sub, 110, cy + 18);
   });
   ctx.restore();
 
@@ -3356,7 +3472,10 @@ function drawPlayersBoard() {
   ctx.fillStyle = "#8a93a0";
   ctx.font = "13px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(maxS > 0 ? "листайте вниз · колёсико / свайп" : "монитор эвента", w / 2, h - 24);
+  let foot = "монитор эвента";
+  if (safeHostUrl) foot = safeHostOnline ? "общий хост · синхрон" : "хост недоступен · локально";
+  else if (maxS > 0) foot = "листайте вниз · колёсико / свайп";
+  ctx.fillText(foot, w / 2, h - 24);
 
   playersTex.needsUpdate = true;
 }
@@ -5099,6 +5218,7 @@ function enterVault() {
   if (phase === "vault") return;
   phase = "vault";
   focus = null;
+  if (!gateDoorOpen) hostEvent("gate");
   gateDoorOpen = true;
   vault.visible = true;
   peekBlock.visible = false;
@@ -5426,6 +5546,7 @@ function loop() {
     // не закрываем фазу открытия, пока не стартовал переход (ждём свет)
     if (lobbyDoorT >= 1 && (phase === "gate" || camLerp)) {
       lobbyOpening = false;
+      if (!lobbyDoorOpen) hostEvent("lobby_door");
       lobbyDoorOpen = true;
       lobbyPeekBlock.visible = false;
       updateRoomBackBtn();
@@ -5773,6 +5894,7 @@ function loop() {
     if (e >= 1) {
       passScanning = false;
       if (doorEventReady) {
+        if (!passUnlocked) hostEvent("pass");
         passUnlocked = true;
         setReaderLed(true);
         hidePassCard();
@@ -5973,6 +6095,7 @@ function loop() {
     safeDoorPivot.rotation.y = -2.0 * e;
     if (safeOpenT >= 1) {
       safeOpening = false;
+      if (!safeOpen) hostEvent("safe");
       safeOpen = true;
     }
   }
