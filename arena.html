@@ -7,34 +7,34 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <title>FUTURUM · Realm</title>
+    <title>FUTURUM · Tower</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=31" />
-    <link rel="stylesheet" href="./arena.css?v=31" />
+    <link rel="stylesheet" href="./styles.css?v=33" />
+    <link rel="stylesheet" href="./arena.css?v=33" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=31"></script>
+    <script src="./vk-bridge-init.js?v=33"></script>
   </head>
   <body class="arena-body">
     <div id="boot" class="boot">
       <a class="boot-back" href="/ops-board/">← FUTURUM</a>
-      <p class="boot-kicker">adventure realm</p>
-      <h1 class="boot-title">REALM</h1>
+      <p class="boot-kicker">circular tower</p>
+      <h1 class="boot-title">TOWER</h1>
       <p class="boot-lead">
-        Красивый бой · крутые способности · монстры, боссы, золото и прокачка
+        20 круглых этажей · сундуки · зачары · босс у двери — без победы дальше не пройти
       </p>
       <label class="boot-name">
         <span>Имя героя</span>
         <input id="player-name" maxlength="14" placeholder="Странник" />
       </label>
-      <button type="button" class="boot-btn" id="btn-start">Начать</button>
+      <button type="button" class="boot-btn" id="btn-start">В башню</button>
       <p class="boot-help">
-        WASD — ходьба · клик/пробел — удар · E — лут · B — лавка<br />
-        <strong>1</strong> Рывок · <strong>2</strong> Молния · <strong>3</strong> Огненный круг · <strong>4</strong> Берсерк
+        <strong>WASD</strong> ходьба · <strong>мышь</strong> прицел · <strong>ЛКМ / Пробел</strong> атака<br />
+        <strong>Q/E</strong> оружие · <strong>F</strong> сундук/дверь · <strong>B</strong> лавка · <strong>1–4</strong> скиллы
       </p>
     </div>
 
@@ -45,33 +45,31 @@
           <span>HP</span>
           <div class="bar"><i id="hp-bar"></i></div>
         </div>
-        <div class="hud-stat xp-stat">
-          <span>XP</span>
-          <div class="bar bar-xp"><i id="xp-bar"></i></div>
-        </div>
-        <div class="hud-chip" id="lvl-chip">LVL 1</div>
+        <div class="hud-chip" id="floor-chip">Этаж 0/20</div>
         <div class="hud-chip" id="gold-chip">◆ 0</div>
-        <div class="hud-chip combo-chip" id="combo-chip" hidden>COMBO x2</div>
+        <div class="hud-chip" id="enchant-chip">без чар</div>
         <button type="button" class="hud-shop-btn" id="btn-shop">Лавка</button>
       </div>
-      <div class="hud-weapon" id="weapon-hud">
-        <strong id="weapon-name">Кинжал</strong>
-        <span id="weapon-meta">урон 8</span>
+      <div class="hud-weapon">
+        <strong id="weapon-name">Клинок</strong>
+        <span id="weapon-meta">slash</span>
       </div>
+      <div class="door-status" id="door-status">убейте босса этажа</div>
+      <div class="safe-banner" id="safe-banner" hidden>лагерь · выберите оружие · войдите в портал</div>
+      <div class="weapon-rack" id="weapon-rack" hidden></div>
       <div class="ability-bar" id="ability-bar"></div>
       <p class="hud-toast" id="toast"></p>
-      <p class="hud-hint" id="zone-hint">Тихие поля</p>
     </div>
 
     <div id="shop" class="shop" hidden>
       <div class="shop-panel">
         <header>
-          <h2>Лавка путника</h2>
+          <h2>Лавка башни</h2>
           <button type="button" class="shop-close" id="shop-close">✕</button>
         </header>
         <p class="shop-scrap">Золото: <strong id="shop-gold">0</strong></p>
         <div class="shop-tabs">
-          <button type="button" class="tab is-on" data-tab="weapons">Оружие</button>
+          <button type="button" class="tab is-on" data-tab="enchants">Зачары</button>
           <button type="button" class="tab" data-tab="skills">Способности</button>
           <button type="button" class="tab" data-tab="items">Зелья</button>
         </div>
@@ -80,9 +78,15 @@
     </div>
 
     <div id="dead" class="dead" hidden>
-      <h2>Поражение</h2>
+      <h2>Падение</h2>
       <p id="dead-stats"></p>
-      <button type="button" class="boot-btn" id="btn-respawn">Воскреснуть</button>
+      <button type="button" class="boot-btn" id="btn-respawn">Снова с лагеря</button>
+    </div>
+
+    <div id="clear" class="dead" hidden>
+      <h2>Башня покорена</h2>
+      <p id="clear-stats"></p>
+      <button type="button" class="boot-btn" id="btn-again">Ещё раз</button>
     </div>
 
     <canvas id="game"></canvas>
@@ -97,6 +101,6 @@
       <button type="button" class="fire-btn" id="fire-btn">⚔</button>
     </div>
 
-    <script src="./arena.js?v=31"></script>
+    <script src="./arena.js?v=33"></script>
   </body>
 </html>
