@@ -101,12 +101,21 @@ async function loadHostFromJson() {
       cache: "no-store",
       mode: "cors",
     });
-    if (!res.ok) return "";
+    if (!res.ok) return safeHostUrl || "";
     const data = await res.json();
     const url = String(data?.url || "")
       .trim()
       .replace(/\/$/, "");
-    if (!url) return "";
+    // пустой host.json = хост ещё не настроили → сбросить старый мёртвый адрес
+    if (!url) {
+      safeHostUrl = "";
+      try {
+        localStorage.removeItem(SAFE_HOST_KEY);
+      } catch {
+        /* ignore */
+      }
+      return "";
+    }
     safeHostUrl = url;
     try {
       localStorage.setItem(SAFE_HOST_KEY, url);
@@ -115,7 +124,7 @@ async function loadHostFromJson() {
     }
     return url;
   } catch {
-    return "";
+    return safeHostUrl || "";
   }
 }
 
@@ -3537,8 +3546,9 @@ function drawPlayersBoard() {
   ctx.font = "13px sans-serif";
   ctx.textAlign = "center";
   let foot = "монитор эвента";
-  if (safeHostUrl) foot = safeHostOnline ? "общий хост · синхрон" : "хост недоступен · локально";
-  else if (maxS > 0) foot = "листайте вниз · колёсико / свайп";
+  if (safeHostUrl && safeHostOnline) foot = "общий хост · синхрон";
+  else if (safeHostUrl && !safeHostOnline) foot = "хост недоступен — проверь туннель и host.json";
+  else foot = maxS > 0 ? "листайте вниз · колёсико / свайп" : "хост не настроен (host.json пуст)";
   ctx.fillText(foot, w / 2, h - 24);
 
   playersTex.needsUpdate = true;
