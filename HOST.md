@@ -36,23 +36,23 @@ ngrok http 8787
 
 Добавь параметр `host` к ссылке мини-аппа / GitHub Pages:
 
-В VK URL приложения:
-`https://dramitelego-netizen.github.io/ops-board/`
+## VK Mini App — прямая ссылка на сейф (рекомендуется)
 
-Сейф открывается **кнопкой «Сейф» на главной без перехода на другой HTML**
-(иначе телефон VK открывает системный браузер).
+В настройках приложения укажи URL:
 
-Хост один раз можно прописать так (и открыть в VK):
 ```
-https://dramitelego-netizen.github.io/ops-board/?host=https://xxxx.trycloudflare.com
+https://dramitelego-netizen.github.io/ops-board/safe.html
 ```
-Потом нажать «Сейф» — параметр `host` сохранится в localStorage.
 
-Проверка на ПК:
+С хостом:
+
 ```
-http://127.0.0.1:5173/?host=http://127.0.0.1:8787
+https://dramitelego-netizen.github.io/ops-board/safe.html?host=https://xxxx.trycloudflare.com
 ```
-→ кнопка «Сейф».
+
+Так мини-апп сразу открывает сейф внутри VK, без кнопки и без перехода на другую страницу.
+
+Альтернатива (главная FUTURUM): `https://dramitelego-netizen.github.io/ops-board/`
 
 ## 4. Что видит табло
 
