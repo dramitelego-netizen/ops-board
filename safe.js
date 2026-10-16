@@ -358,9 +358,12 @@ const FOCUS = {
   },
 };
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: "high-performance",
+  alpha: false,
+});
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -371,8 +374,36 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd8d4cc);
 scene.fog = new THREE.FogExp2(0xd4d0c8, 0.022);
 
-const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 80);
+const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 80);
 camera.rotation.order = "YXZ";
+
+/** реальный размер окна (VK / мобильный браузер часто врёт innerWidth/Height) */
+function getViewSize() {
+  const vv = window.visualViewport;
+  let w = vv?.width ?? document.documentElement?.clientWidth ?? innerWidth;
+  let h = vv?.height ?? document.documentElement?.clientHeight ?? innerHeight;
+  w = Math.max(1, Math.floor(w));
+  h = Math.max(1, Math.floor(h));
+  return { w, h };
+}
+
+function fitViewport() {
+  const { w, h } = getViewSize();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(dpr);
+  // false = не трогать CSS style автоматически (иначе на части телефонов тянет картинку)
+  renderer.setSize(w, h, false);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  canvas.style.margin = "0";
+  // visualViewport может сдвигаться при клавиатуре / панелях VK
+  const vv = window.visualViewport;
+  const ox = vv ? Math.round(vv.offsetLeft || 0) : 0;
+  const oy = vv ? Math.round(vv.offsetTop || 0) : 0;
+  canvas.style.left = `${ox}px`;
+  canvas.style.top = `${oy}px`;
+  updateCameraFov(w, h);
+}
 
 const controls = new OrbitControls(camera, canvas);
 controls.enabled = false;
@@ -517,17 +548,20 @@ function goRoomBack() {
 }
 
 /** FOV под телефон / ПК — чтобы объекты не «кривило» */
-function updateCameraFov() {
-  const aspect = innerWidth / Math.max(1, innerHeight);
+function updateCameraFov(w, h) {
+  const size = w && h ? { w, h } : getViewSize();
+  const aspect = size.w / Math.max(1, size.h);
   // портрет телефона — шире; десктоп — спокойнее
-  if (aspect < 0.7) camera.fov = 64;
+  if (aspect < 0.55) camera.fov = 68;
+  else if (aspect < 0.7) camera.fov = 64;
   else if (aspect < 1) camera.fov = 58;
   else if (aspect < 1.4) camera.fov = 54;
   else camera.fov = 50;
   camera.aspect = aspect;
   camera.updateProjectionMatrix();
 }
-updateCameraFov();
+
+fitViewport();
 
 /** позиция камеры ровно напротив объекта (стена в сторону комнаты = +Z) */
 function resolveFocusPose(id) {
@@ -546,10 +580,23 @@ function resolveFocusPose(id) {
 
 /** на узком экране чуть дальше, чтобы всё влезало в кадр */
 function focusDist(base) {
-  const aspect = innerWidth / Math.max(1, innerHeight);
+  const { w, h } = getViewSize();
+  const aspect = w / Math.max(1, h);
+  if (aspect < 0.55) return base * 1.32;
   if (aspect < 0.7) return base * 1.22;
   if (aspect < 1) return base * 1.1;
   return base;
+}
+
+function refitFocusCamera() {
+  if (!focus || camLerp) return;
+  const pose = resolveFocusPose(focus);
+  if (!pose) return;
+  camAnchor.copy(pose.pos);
+  camLookAt.copy(pose.target);
+  faceToward(camAnchor, pose.target);
+  setLookLimitsAround(lookYaw, pose.yawRange, lookPitch, pose.pitchRange);
+  applyLook();
 }
 
 function applyLook() {
@@ -5604,20 +5651,28 @@ canvas.addEventListener("pointercancel", () => {
   boardScrolling = false;
 });
 
-window.addEventListener("resize", () => {
-  updateCameraFov();
-  renderer.setSize(innerWidth, innerHeight);
-  // если стоим у объекта — чуть поправить дистанцию под новый экран
-  if (focus && !camLerp) {
-    const pose = resolveFocusPose(focus);
-    if (pose) {
-      camAnchor.copy(pose.pos);
-      camLookAt.copy(pose.target);
-      faceToward(camAnchor, pose.target);
-      setLookLimitsAround(lookYaw, pose.yawRange, lookPitch, pose.pitchRange);
-      applyLook();
-    }
-  }
+function onViewportChange() {
+  fitViewport();
+  refitFocusCamera();
+}
+
+window.addEventListener("resize", onViewportChange);
+window.addEventListener("orientationchange", () => {
+  // после поворота WebView часто отдаёт размер с задержкой
+  setTimeout(onViewportChange, 50);
+  setTimeout(onViewportChange, 250);
+  setTimeout(onViewportChange, 600);
+});
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", onViewportChange);
+  visualViewport.addEventListener("scroll", onViewportChange);
+}
+// VK Mini App: первый кадр иногда с кривым размером
+setTimeout(onViewportChange, 100);
+setTimeout(onViewportChange, 400);
+setTimeout(onViewportChange, 1000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) setTimeout(onViewportChange, 50);
 });
 
 function loop() {

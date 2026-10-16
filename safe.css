@@ -3,17 +3,26 @@ body {
   margin: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   background: #e8ebe8;
+  /* убирает «резину» и зум жестами в VK WebView */
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 #c {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   display: block;
   touch-action: none;
+  /* важно: не растягивать буфер — размер задаёт JS */
+  object-fit: contain;
 }
 
 .back {
