@@ -11,6 +11,9 @@
 ### Окно 2 — туннель (HTTPS для телефонов / VK)
 Двойной клик: **`start-safe-tunnel.bat`**  
 
+Используется **localhost.run** (`*.lhr.life`) — из РФ обычно работает.  
+Cloudflare (`trycloudflare.com`) в России часто заблокирован, его не используем.
+
 В консоли появится строка вида:
 `https://xxxxxxxx.lhr.life`
 
