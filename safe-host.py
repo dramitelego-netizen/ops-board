@@ -20,14 +20,25 @@ PORT = 8787
 PLAYER_TTL_SEC = 5 * 60
 MAX_EVENTS = 80
 MAX_PLAYERS = 64
+EVENT_UNLOCK_SEC = 60  # общий таймер двери для всех клиентов
 
 _lock = threading.Lock()
 _players: dict[str, dict] = {}
 _events: list[dict] = []
+_event_started_at = time.time()  # старт эвента = момент запуска хоста
 
 
 def _now() -> float:
     return time.time()
+
+
+def _event_ends_at() -> float:
+    return _event_started_at + EVENT_UNLOCK_SEC
+
+
+def _reset_event_timer() -> None:
+    global _event_started_at
+    _event_started_at = _now()
 
 
 def _prune_players(now: float | None = None) -> None:
@@ -41,9 +52,14 @@ def _state() -> dict:
     now = _now()
     _prune_players(now)
     players = sorted(_players.values(), key=lambda p: p.get("at", 0), reverse=True)
+    ends = _event_ends_at()
     return {
         "ok": True,
         "serverTime": now,
+        "eventStartAt": _event_started_at,
+        "eventEndsAt": ends,
+        "eventUnlockSec": EVENT_UNLOCK_SEC,
+        "eventSecondsLeft": max(0.0, ends - now),
         "players": players[:MAX_PLAYERS],
         "events": list(reversed(_events[-40:])),
     }
@@ -189,6 +205,10 @@ class Handler(BaseHTTPRequestHandler):
                 ev = _add_event(data)
                 self._json(200, {"ok": True, "event": ev, "state": _state()})
                 return
+            if path == "/api/timer/reset":
+                _reset_event_timer()
+                self._json(200, {"ok": True, "state": _state()})
+                return
         self._json(404, {"ok": False, "error": "not_found"})
 
 
@@ -200,6 +220,8 @@ def main() -> None:
     print(f"  Локально:  http://127.0.0.1:{PORT}/")
     print(f"  Health:    http://127.0.0.1:{PORT}/api/health")
     print(f"  State:     http://127.0.0.1:{PORT}/api/state")
+    print(f"  Таймер:    {EVENT_UNLOCK_SEC} сек с момента запуска хоста")
+    print(f"  Сброс:     POST /api/timer/reset")
     print()
     print("  Для телефонов / VK нужен HTTPS-туннель — см. HOST.md")
     print("  Клиент: safe.html?host=https://ВАШ_ТУННЕЛЬ")

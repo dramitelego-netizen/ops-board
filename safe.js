@@ -59,10 +59,12 @@ let lobbyDoorShake = 0;
 let vkUser = { name: "Гость", photo: "", id: "0" };
 
 /** эвент: дверь закрыта, пока не выйдет таймер (потом карта) */
-const EVENT_UNLOCK_SEC = 60;
+let EVENT_UNLOCK_SEC = 60;
 const EVENT_PLAYERS_KEY = "futurum_event_players_v1";
 const SAFE_HOST_KEY = "futurum_safe_host";
-const eventStartAt = performance.now();
+let eventStartAt = performance.now(); // локальный запасной старт
+let eventEndsAtUnix = 0; // unix-сек с хоста (общий для всех)
+let serverTimeOffsetMs = 0; // serverNow - Date.now()
 let doorEventReady = false; // таймер дошёл до 0
 let eventReadyAnnounced = false;
 let eventPlayers = []; // кто сейчас в игре
@@ -153,8 +155,39 @@ async function hostFetch(path, body) {
   }
 }
 
+function syncedNowMs() {
+  return Date.now() + serverTimeOffsetMs;
+}
+
+function applyHostTimer(data) {
+  if (!data) return;
+  if (typeof data.serverTime === "number") {
+    serverTimeOffsetMs = data.serverTime * 1000 - Date.now();
+  }
+  if (typeof data.eventUnlockSec === "number" && data.eventUnlockSec > 0) {
+    EVENT_UNLOCK_SEC = data.eventUnlockSec;
+  }
+  if (typeof data.eventEndsAt === "number" && data.eventEndsAt > 0) {
+    eventEndsAtUnix = data.eventEndsAt;
+    const left = Math.max(0, eventEndsAtUnix - syncedNowMs() / 1000);
+    if (left <= 0) {
+      if (!doorEventReady) {
+        doorEventReady = true;
+        if (typeof drawPassCard === "function") drawPassCard(vkUser, passPhotoImg);
+      }
+    } else {
+      // хост перезапустил таймер
+      doorEventReady = false;
+      eventReadyAnnounced = false;
+    }
+    if (typeof drawTimerBoard === "function") drawTimerBoard();
+  }
+}
+
 function applyHostState(data) {
-  if (!data?.players) return;
+  if (!data) return;
+  applyHostTimer(data);
+  if (!data.players) return;
   eventPlayers = data.players.map((p) => ({
     id: String(p.id || "0"),
     name: p.name || "Игрок",
@@ -989,6 +1022,14 @@ async function registerEventPlayer(user) {
 }
 
 function eventSecondsLeft() {
+  // общий таймер с хоста (одинаковый у всех)
+  if (eventEndsAtUnix > 0 && safeHostOnline) {
+    return Math.max(0, eventEndsAtUnix - syncedNowMs() / 1000);
+  }
+  if (eventEndsAtUnix > 0 && safeHostUrl) {
+    return Math.max(0, eventEndsAtUnix - syncedNowMs() / 1000);
+  }
+  // без хоста — локальный отсчёт
   const left = EVENT_UNLOCK_SEC - (performance.now() - eventStartAt) / 1000;
   return Math.max(0, left);
 }
