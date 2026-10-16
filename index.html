@@ -14,47 +14,97 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="./styles.css?v=37" id="lobby-css" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=36"></script>
-    <script>
-      // Сейф на ТОЙ ЖЕ странице (?view=safe) — иначе VK на телефоне открывает браузер
-      window.__FUTURUM_VIEW__ = new URLSearchParams(location.search).get("view") || "";
+    <script src="./vk-bridge-init.js?v=37"></script>
+    <!-- importmap заранее: нужен до safe.js, без перезагрузки страницы -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
     </script>
   </head>
   <body>
+    <div id="lobby-root">
+      <div class="atmosphere" aria-hidden="true"></div>
+      <div class="scanlines" aria-hidden="true"></div>
+
+      <main class="dashboard dashboard-minimal">
+        <section class="brand" aria-label="FUTURUM">
+          <p class="brand-tag">community</p>
+          <h1 class="glitch" data-text="FUTURUM">FUTURUM</h1>
+          <p class="brand-line">welcome</p>
+          <div class="user-chip" id="user-chip" hidden></div>
+          <div class="game-links">
+            <button type="button" class="game-link" id="btn-tower">Tower</button>
+            <button type="button" class="game-link" id="btn-safe">Сейф</button>
+          </div>
+        </section>
+
+        <section class="panel visits-panel" id="visits-panel" hidden aria-label="Заходы">
+          <div class="panel-head">
+            <h2>Кто заходил</h2>
+          </div>
+          <p class="visits-hint">
+            Пока журнал на этом устройстве. Общий лог — после хоста/бэкенда.
+          </p>
+          <ul class="visits-list" id="visits-list"></ul>
+        </section>
+      </main>
+    </div>
+
+    <div id="safe-root" hidden></div>
+
+    <script src="./vk-user.js?v=37"></script>
+    <script src="./widget-admin.js?v=37"></script>
     <script>
-      (function boot() {
-        var view = window.__FUTURUM_VIEW__;
+      (function () {
+        var safeStarted = false;
 
-        function keepHost(url) {
+        function wantSafeOnLoad() {
           try {
-            var host = new URLSearchParams(location.search).get("host");
-            if (host) url.searchParams.set("host", host);
+            return new URLSearchParams(location.search).get("view") === "safe";
+          } catch (_) {
+            return false;
+          }
+        }
+
+        function markSafeUrl() {
+          // только pushState — БЕЗ location.assign (иначе VK открывает браузер)
+          try {
+            var u = new URL(location.href);
+            if (u.searchParams.get("view") === "safe") return;
+            u.searchParams.set("view", "safe");
+            history.pushState({ view: "safe" }, "", u.pathname + u.search + u.hash);
           } catch (_) {}
-          return url;
         }
 
-        function openSafeView() {
-          var u = new URL(location.href);
-          u.searchParams.set("view", "safe");
-          keepHost(u);
-          // тот же path (index /ops-board/) — WebView не уходит в Safari/Chrome
-          location.assign(u.pathname + u.search + u.hash);
-        }
+        function startSafeInPlace() {
+          if (safeStarted) return;
+          safeStarted = true;
 
-        window.futurumOpenSafe = openSafeView;
+          var lobby = document.getElementById("lobby-root");
+          var root = document.getElementById("safe-root");
+          var lobbyCss = document.getElementById("lobby-css");
 
-        if (view === "safe") {
+          if (lobby) lobby.hidden = true;
+          if (lobbyCss) lobbyCss.disabled = true;
+
           document.title = "FUTURUM · Хранилище";
           document.documentElement.style.height = "100%";
-          document.body.style.cssText = "margin:0;width:100%;height:100%;overflow:hidden;background:#e8ebe8";
+          document.body.style.cssText =
+            "margin:0;width:100%;height:100%;overflow:hidden;background:#e8ebe8";
 
           var css = document.createElement("link");
           css.rel = "stylesheet";
-          css.href = "./safe.css?v=42";
+          css.href = "./safe.css?v=43";
           document.head.appendChild(css);
 
-          document.body.innerHTML =
+          root.hidden = false;
+          root.innerHTML =
             '<canvas id="c"></canvas>' +
             '<button type="button" id="room-back" class="room-back" hidden>← Назад</button>' +
             '<button type="button" id="step-back" class="step-back" hidden>Отойти</button>' +
@@ -62,68 +112,38 @@
             '<button type="button" id="nav-right" class="side-nav side-nav-right" hidden>→ Код</button>' +
             '<div id="peephole-mask" class="peephole-mask" hidden aria-hidden="true"></div>';
 
-          var map = document.createElement("script");
-          map.type = "importmap";
-          map.textContent = JSON.stringify({
-            imports: {
-              three: "https://unpkg.com/three@0.160.0/build/three.module.js",
-              "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            },
-          });
-          document.head.appendChild(map);
+          markSafeUrl();
 
           var mod = document.createElement("script");
           mod.type = "module";
-          mod.src = "./safe.js?v=95";
+          mod.src = "./safe.js?v=96";
           document.body.appendChild(mod);
-          return;
         }
 
-        // —— лобби ——
-        var lobbyCss = document.createElement("link");
-        lobbyCss.rel = "stylesheet";
-        lobbyCss.href = "./styles.css?v=36";
-        document.head.appendChild(lobbyCss);
+        window.futurumOpenSafe = startSafeInPlace;
 
-        document.body.innerHTML =
-          '<div class="atmosphere" aria-hidden="true"></div>' +
-          '<div class="scanlines" aria-hidden="true"></div>' +
-          '<main class="dashboard dashboard-minimal">' +
-          '  <section class="brand" aria-label="FUTURUM">' +
-          '    <p class="brand-tag">community</p>' +
-          '    <h1 class="glitch" data-text="FUTURUM">FUTURUM</h1>' +
-          '    <p class="brand-line">welcome</p>' +
-          '    <div class="user-chip" id="user-chip" hidden></div>' +
-          '    <div class="game-links">' +
-          '      <button type="button" class="game-link" id="btn-tower">Tower</button>' +
-          '      <button type="button" class="game-link" id="btn-safe">Сейф</button>' +
-          "    </div>" +
-          "  </section>" +
-          '  <section class="panel visits-panel" id="visits-panel" hidden aria-label="Заходы">' +
-          '    <div class="panel-head"><h2>Кто заходил</h2></div>' +
-          '    <p class="visits-hint">Пока журнал на этом устройстве. Общий лог — после хоста/бэкенда.</p>' +
-          '    <ul class="visits-list" id="visits-list"></ul>' +
-          "  </section>" +
-          "</main>";
+        var btn = document.getElementById("btn-safe");
+        if (btn) {
+          btn.addEventListener(
+            "click",
+            function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              startSafeInPlace();
+            },
+            true
+          );
+        }
 
-        document.getElementById("btn-safe").addEventListener("click", function (e) {
-          e.preventDefault();
-          openSafeView();
-        });
+        var tower = document.getElementById("btn-tower");
+        if (tower) {
+          tower.addEventListener("click", function (e) {
+            e.preventDefault();
+            alert("Tower пока отдельно. Сейф открывается внутри мини-аппа.");
+          });
+        }
 
-        document.getElementById("btn-tower").addEventListener("click", function (e) {
-          e.preventDefault();
-          // башня пока отдельным файлом (если снова уведёт в браузер — сделаем так же)
-          var u = new URL("./arena.html", location.href);
-          location.assign(u.href);
-        });
-
-        var s1 = document.createElement("script");
-        s1.src = "./vk-user.js?v=36";
-        document.body.appendChild(s1);
-        var s2 = document.createElement("script");
-        s2.src = "./widget-admin.js?v=36";
-        document.body.appendChild(s2);
+        if (wantSafeOnLoad()) startSafeInPlace();
       })();
     </script>
   </body>

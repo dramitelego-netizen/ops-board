@@ -6,16 +6,15 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>FUTURUM · Хранилище</title>
     <script>
-      // VK на телефоне открывает другой .html в браузере.
-      // Сейф живёт на той же странице мини-аппа: index / ?view=safe
+      // Не уходим на другой документ через assign — только replace на корень с hash,
+      // а лучше сразу сказать открыть мини-апп с главной.
+      // Для VK: пользователь должен жать «Сейф» на главной (без смены URL-файла).
       (function () {
         try {
-          var u = new URL(location.href);
-          var target = new URL("./", u.href);
-          target.searchParams.set("view", "safe");
-          var host = u.searchParams.get("host");
-          if (host) target.searchParams.set("host", host);
-          location.replace(target.pathname + target.search + target.hash);
+          var host = new URLSearchParams(location.search).get("host") || "";
+          var q = "view=safe" + (host ? "&host=" + encodeURIComponent(host) : "");
+          // replace на index того же каталога (один раз при прямом заходе с ПК)
+          location.replace("./?" + q);
         } catch (_) {
           location.replace("./?view=safe");
         }
@@ -23,6 +22,6 @@
     </script>
   </head>
   <body>
-    <p style="font-family: sans-serif; padding: 24px; color: #444">Открытие сейфа…</p>
+    <p style="font-family: sans-serif; padding: 24px">Открытие…</p>
   </body>
 </html>

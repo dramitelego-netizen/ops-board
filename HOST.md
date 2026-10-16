@@ -36,19 +36,23 @@ ngrok http 8787
 
 Добавь параметр `host` к ссылке мини-аппа / GitHub Pages:
 
-```
-https://dramitelego-netizen.github.io/ops-board/?view=safe&host=https://xxxx.trycloudflare.com
-```
+В VK URL приложения:
+`https://dramitelego-netizen.github.io/ops-board/`
 
-В VK URL приложения лучше оставить:
-`https://dramitelego-netizen.github.io/ops-board/`  
-Сейф открывается кнопкой внутри (тот же адрес + `?view=safe`), иначе телефон уводит в браузер.
+Сейф открывается **кнопкой «Сейф» на главной без перехода на другой HTML**
+(иначе телефон VK открывает системный браузер).
 
-Проверка без VK (только свой ПК):
+Хост один раз можно прописать так (и открыть в VK):
+```
+https://dramitelego-netizen.github.io/ops-board/?host=https://xxxx.trycloudflare.com
+```
+Потом нажать «Сейф» — параметр `host` сохранится в localStorage.
 
+Проверка на ПК:
 ```
-http://127.0.0.1:5173/?view=safe&host=http://127.0.0.1:8787
+http://127.0.0.1:5173/?host=http://127.0.0.1:8787
 ```
+→ кнопка «Сейф».
 
 ## 4. Что видит табло
 
