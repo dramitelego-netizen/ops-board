@@ -1,23 +1,27 @@
 /**
- * FUTURUM Realm — более сочный бой, способности, VFX, комбо.
+ * FUTURUM Realm — живой персонаж, видимое оружие, прокачка способностей.
  */
 
 const WORLD_W = 3200;
 const WORLD_H = 2200;
 
 const WEAPONS = [
-  { id: "dagger", name: "Кинжал", dmg: 9, reach: 46, cd: 0.28, price: 0, color: "#cbd5e1" },
-  { id: "sword", name: "Меч странника", dmg: 15, reach: 56, cd: 0.34, price: 60, color: "#67e8f9" },
-  { id: "axe", name: "Секира", dmg: 24, reach: 60, cd: 0.5, price: 140, color: "#fb7185" },
-  { id: "spear", name: "Копьё бури", dmg: 19, reach: 82, cd: 0.38, price: 220, color: "#a78bfa" },
-  { id: "blade", name: "Клинок FUTURUM", dmg: 34, reach: 74, cd: 0.3, price: 420, color: "#22d3ee" },
+  { id: "dagger", name: "Кинжал", dmg: 9, reach: 46, cd: 0.26, price: 0, color: "#e2e8f0", style: "dagger" },
+  { id: "sword", name: "Меч странника", dmg: 15, reach: 56, cd: 0.32, price: 55, color: "#67e8f9", style: "sword" },
+  { id: "axe", name: "Секира", dmg: 24, reach: 58, cd: 0.48, price: 130, color: "#fb7185", style: "axe" },
+  { id: "spear", name: "Копьё бури", dmg: 18, reach: 86, cd: 0.36, price: 200, color: "#a78bfa", style: "spear" },
+  { id: "hammer", name: "Молот грома", dmg: 30, reach: 54, cd: 0.58, price: 280, color: "#fbbf24", style: "hammer" },
+  { id: "dual", name: "Парные клинки", dmg: 12, reach: 50, cd: 0.2, price: 340, color: "#f472b6", style: "dual" },
+  { id: "scythe", name: "Коса затмения", dmg: 28, reach: 78, cd: 0.44, price: 400, color: "#c084fc", style: "scythe" },
+  { id: "staff", name: "Посох кристалла", dmg: 22, reach: 70, cd: 0.4, price: 460, color: "#22d3ee", style: "staff" },
+  { id: "blade", name: "Клинок FUTURUM", dmg: 36, reach: 76, cd: 0.28, price: 620, color: "#2dd4bf", style: "blade" },
 ];
 
 const ABILITIES = [
-  { id: "dash", key: "1", name: "Рывок", icon: "💨", cd: 3.2, cls: "dash" },
-  { id: "bolt", key: "2", name: "Молния", icon: "⚡", cd: 5.5, cls: "bolt" },
-  { id: "nova", key: "3", name: "Адский круг", icon: "🔥", cd: 7.5, cls: "nova" },
-  { id: "rage", key: "4", name: "Берсерк", icon: "🩸", cd: 12, cls: "rage" },
+  { id: "dash", key: "1", name: "Рывок", icon: "💨", cd: 3.4, cls: "dash", desc: "Рывок вперёд + неуязвимость" },
+  { id: "bolt", key: "2", name: "Молния", icon: "⚡", cd: 5.8, cls: "bolt", desc: "Цепной разряд по врагам" },
+  { id: "nova", key: "3", name: "Адский круг", icon: "🔥", cd: 7.8, cls: "nova", desc: "Взрыв вокруг героя" },
+  { id: "rage", key: "4", name: "Берсерк", icon: "🩸", cd: 12.5, cls: "rage", desc: "Урон, скорость и криты" },
 ];
 
 const MONSTER_TYPES = {
@@ -61,6 +65,7 @@ let H = 0;
 let running = false;
 let lastTs = 0;
 let toastTimer = 0;
+let shopTab = "weapons";
 let cam = { x: 0, y: 0 };
 let shake = 0;
 let keys = {};
@@ -100,7 +105,6 @@ function toast(t) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => ui.toast.classList.remove("is-on"), 1600);
 }
-
 function beep(freq = 440, dur = 0.06, type = "square", gain = 0.03) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -136,6 +140,20 @@ function xpToLevel(lvl) {
 function weaponOf(p) {
   return WEAPONS.find((w) => w.id === p.weaponId) || WEAPONS[0];
 }
+function abilityBase(id) {
+  return ABILITIES.find((a) => a.id === id);
+}
+function abilityCd(p, id) {
+  const base = abilityBase(id).cd;
+  const lvl = p.abilityLvl[id] || 0;
+  return base * Math.pow(0.86, lvl);
+}
+function abilityPower(p, id) {
+  return 1 + (p.abilityLvl[id] || 0) * 0.14;
+}
+function skillUpgradeCost(lvl) {
+  return 45 + lvl * 55;
+}
 
 function makePlayer(name) {
   return {
@@ -145,11 +163,12 @@ function makePlayer(name) {
     facing: 1,
     hp: 100,
     maxHp: 100,
-    gold: 20,
+    gold: 35,
     xp: 0,
     level: 1,
     weaponId: "dagger",
     owned: { dagger: true },
+    abilityLvl: { dash: 0, bolt: 0, nova: 0, rage: 0 },
     attackCd: 0,
     attackFlash: 0,
     cds: { dash: 0, bolt: 0, nova: 0, rage: 0 },
@@ -230,15 +249,7 @@ function spawnDrop(x, y, kind, amount) {
 }
 
 function floatText(x, y, text, color = "#fff", crit = false) {
-  state.floats.push({
-    x,
-    y,
-    text,
-    color,
-    crit,
-    life: crit ? 1.1 : 0.8,
-    vy: crit ? -70 : -50,
-  });
+  state.floats.push({ x, y, text, color, crit, life: crit ? 1.1 : 0.8, vy: crit ? -70 : -50 });
 }
 
 function burst(x, y, color, n = 10, speed = 160) {
@@ -272,7 +283,6 @@ function gainXp(p, amount) {
     toast(`⬆ Уровень ${p.level}!`);
     ring(p.x, p.y, "#67e8f9", 120, 0.7);
     beep(660, 0.08, "sine", 0.04);
-    beep(880, 0.1, "sine", 0.03);
   }
 }
 
@@ -298,17 +308,14 @@ function killMonster(m, byPlayer) {
   ring(m.x, m.y, m.color, m.boss ? 140 : 60, 0.5);
   shake = Math.max(shake, m.boss ? 10 : 4);
   beep(m.boss ? 120 : 220, 0.08, "sawtooth", 0.035);
-
   if (byPlayer) {
     const p = state.player;
     p.kills += 1;
     if (m.boss) p.bosses += 1;
-    const xpBonus = 1 + Math.min(0.5, p.combo * 0.05);
-    gainXp(p, Math.floor(m.xp * xpBonus));
+    gainXp(p, Math.floor(m.xp * (1 + Math.min(0.5, p.combo * 0.05))));
     floatText(m.x, m.y - m.h, `+${gold}◆`, "#fbbf24");
     toast(`${m.name} ✦ +${gold}◆`);
   }
-
   setTimeout(() => {
     if (!running || m.boss) return;
     const types = ["slime", "slime", "wolf", "skeleton", "brute"];
@@ -320,7 +327,9 @@ function hurtMonster(m, dmg, color = "#fecaca", knock = 16) {
   if (!m.alive) return false;
   const p = state.player;
   const crit = Math.random() < 0.18 + (p.rageT > 0 ? 0.15 : 0);
-  const final = Math.floor(dmg * (crit ? 1.85 : 1) * (p.rageT > 0 ? 1.35 : 1) * (1 + Math.min(0.4, p.combo * 0.04)));
+  const final = Math.floor(
+    dmg * (crit ? 1.85 : 1) * (p.rageT > 0 ? 1.35 : 1) * (1 + Math.min(0.4, p.combo * 0.04))
+  );
   m.hp -= final;
   m.hitFlash = 0.18;
   m.x += p.facing * knock;
@@ -339,8 +348,8 @@ function tryAttack() {
   const p = state.player;
   if (!p || p.attackCd > 0) return;
   const w = weaponOf(p);
-  p.attackCd = w.cd * (p.rageT > 0 ? 0.7 : 1);
-  p.attackFlash = 0.2;
+  p.attackCd = w.cd * (p.rageT > 0 ? 0.7 : 1) * (w.style === "dual" ? 0.92 : 1);
+  p.attackFlash = 0.22;
   const reach = w.reach;
   const base = w.dmg + Math.floor((p.level - 1) * 1.8);
   let hits = 0;
@@ -350,12 +359,14 @@ function tryAttack() {
     const dy = m.y - p.y;
     const inFront = p.facing > 0 ? dx > -14 : dx < 14;
     if (inFront && Math.hypot(dx, dy) < reach + m.w * 0.3) {
-      hurtMonster(m, base, w.color, 18);
+      hurtMonster(m, base, w.color, w.style === "hammer" ? 26 : 16);
       hits += 1;
     }
   }
+  // dual hits twice lightly visual
+  if (w.style === "dual" && hits) ring(p.x + p.facing * 18, p.y - 8, w.color, reach * 0.4, 0.15);
   ring(p.x + p.facing * 24, p.y - 10, w.color, reach * 0.55, 0.22);
-  if (hits) shake = Math.max(shake, 3);
+  if (hits) shake = Math.max(shake, w.style === "hammer" ? 5 : 3);
   else beep(180, 0.03, "triangle", 0.015);
 }
 
@@ -363,50 +374,56 @@ function useAbility(id) {
   const p = state.player;
   if (!p || !running) return;
   if ((p.cds[id] || 0) > 0) return;
+  const pow = abilityPower(p, id);
+  const cd = abilityCd(p, id);
 
   if (id === "dash") {
-    p.cds.dash = ABILITIES[0].cd;
-    p.dashT = 0.24;
-    p.invuln = 0.28;
-    p.x = clamp(p.x + p.facing * 110, 30, WORLD_W - 30);
-    for (let i = 0; i < 10; i++) {
-      burst(p.x - p.facing * i * 10, p.y - 20, "#67e8f9", 2, 60);
+    p.cds.dash = cd;
+    p.dashT = 0.26;
+    p.invuln = 0.3 + (p.abilityLvl.dash || 0) * 0.04;
+    const distDash = 110 + (p.abilityLvl.dash || 0) * 18;
+    p.x = clamp(p.x + p.facing * distDash, 30, WORLD_W - 30);
+    for (let i = 0; i < 12; i++) burst(p.x - p.facing * i * 9, p.y - 20, "#67e8f9", 2, 70);
+    ring(p.x, p.y, "#67e8f9", 70 + pow * 10, 0.35);
+    // small damage at end
+    for (const m of state.monsters) {
+      if (m.alive && dist(m, p) < 55) hurtMonster(m, 10 * pow, "#67e8f9", 20);
     }
-    ring(p.x, p.y, "#67e8f9", 70, 0.35);
     toast("💨 Сверхрывок");
     beep(520, 0.07, "sine", 0.04);
   }
 
   if (id === "bolt") {
-    p.cds.bolt = ABILITIES[1].cd;
+    p.cds.bolt = cd;
+    const count = 4 + Math.min(3, p.abilityLvl.bolt | 0);
     const targets = state.monsters
-      .filter((m) => m.alive && dist(m, p) < 260)
+      .filter((m) => m.alive && dist(m, p) < 260 + (p.abilityLvl.bolt || 0) * 20)
       .sort((a, b) => dist(a, p) - dist(b, p))
-      .slice(0, 5);
+      .slice(0, count);
     if (!targets.length) {
       toast("Нет целей для молнии");
-      p.cds.bolt = 0.6;
+      p.cds.bolt = 0.5;
       return;
     }
-    let prev = { x: p.x, y: p.y - 30 };
+    let prev = { x: p.x, y: p.y - 34 };
     for (const m of targets) {
-      state.bolts.push({ x1: prev.x, y1: prev.y, x2: m.x, y2: m.y - m.h * 0.5, life: 0.28 });
-      hurtMonster(m, 26 + p.level * 3, "#c4b5fd", 10);
+      state.bolts.push({ x1: prev.x, y1: prev.y, x2: m.x, y2: m.y - m.h * 0.5, life: 0.3 });
+      hurtMonster(m, (28 + p.level * 3) * pow, "#c4b5fd", 12);
       prev = { x: m.x, y: m.y - m.h * 0.5 };
     }
     shake = Math.max(shake, 7);
-    toast("⚡ Цепная молния");
+    toast(`⚡ Молния ×${targets.length}`);
     beep(740, 0.09, "sawtooth", 0.035);
   }
 
   if (id === "nova") {
-    p.cds.nova = ABILITIES[2].cd;
-    ring(p.x, p.y, "#f97316", 160, 0.55);
-    ring(p.x, p.y, "#fb7185", 110, 0.4);
-    burst(p.x, p.y - 10, "#f97316", 30, 280);
+    p.cds.nova = cd;
+    const radius = 145 + (p.abilityLvl.nova || 0) * 16;
+    ring(p.x, p.y, "#f97316", radius + 20, 0.55);
+    ring(p.x, p.y, "#fb7185", radius * 0.7, 0.4);
+    burst(p.x, p.y - 10, "#f97316", 34, 300);
     for (const m of state.monsters) {
-      if (!m.alive) continue;
-      if (dist(m, p) < 150) hurtMonster(m, 34 + p.level * 2, "#fdba74", 28);
+      if (m.alive && dist(m, p) < radius) hurtMonster(m, (36 + p.level * 2) * pow, "#fdba74", 30);
     }
     shake = Math.max(shake, 9);
     toast("🔥 Адский круг");
@@ -414,12 +431,12 @@ function useAbility(id) {
   }
 
   if (id === "rage") {
-    p.cds.rage = ABILITIES[3].cd;
-    p.rageT = 6;
-    p.hp = Math.min(p.maxHp, p.hp + 25);
-    ring(p.x, p.y, "#fb7185", 100, 0.6);
-    burst(p.x, p.y - 20, "#fb7185", 20, 200);
-    toast("🩸 Берсерк 6с · +урон +скорость");
+    p.cds.rage = cd;
+    p.rageT = 5.5 + (p.abilityLvl.rage || 0) * 0.8;
+    p.hp = Math.min(p.maxHp, p.hp + 20 + (p.abilityLvl.rage || 0) * 6);
+    ring(p.x, p.y, "#fb7185", 110, 0.6);
+    burst(p.x, p.y - 20, "#fb7185", 24, 220);
+    toast(`🩸 Берсерк ${p.rageT.toFixed(1)}с`);
     beep(200, 0.1, "square", 0.04);
   }
   renderAbilities();
@@ -483,7 +500,6 @@ function updateMonster(m, dt) {
   const p = state.player;
   const d = p ? dist(m, p) : 9999;
   const aggro = m.boss ? 440 : 220;
-
   if (p && d < aggro) {
     const ang = Math.atan2(p.y - m.y, p.x - m.x);
     m.facing = Math.cos(ang) >= 0 ? 1 : -1;
@@ -493,16 +509,14 @@ function updateMonster(m, dt) {
       m.y += Math.sin(ang) * m.speed * dt * 0.85;
     } else if (m.attackCd <= 0 && p.invuln <= 0) {
       m.attackCd = m.boss ? 1.05 : 0.8;
-      const dmg = m.dmg;
-      p.hp -= dmg;
+      p.hp -= m.dmg;
       p.invuln = 0.4;
       p.combo = 0;
       p.comboT = 0;
       ui.comboChip.hidden = true;
       burst(p.x, p.y - 28, "#fb7185", 10);
-      floatText(p.x, p.y - 50, `-${dmg}`, "#fb7185");
+      floatText(p.x, p.y - 50, `-${m.dmg}`, "#fb7185");
       shake = Math.max(shake, 5);
-      beep(90, 0.08, "square", 0.04);
       if (p.hp <= 0) onPlayerDead();
     }
   } else {
@@ -522,7 +536,7 @@ function onPlayerDead() {
   running = false;
   const p = state.player;
   ui.dead.hidden = false;
-  ui.deadStats.textContent = `Ур.${p.level} · убийств ${p.kills} · боссов ${p.bosses} · золото ${p.gold} · макс комбо было`;
+  ui.deadStats.textContent = `Ур.${p.level} · убийств ${p.kills} · боссов ${p.bosses} · золото ${p.gold}`;
   shake = 14;
 }
 
@@ -544,6 +558,9 @@ function update(dt) {
   }
   for (const k of Object.keys(p.cds)) p.cds[k] = Math.max(0, p.cds[k] - dt);
 
+  // always animate a bit for idle breath
+  p.anim += dt * (p.moving ? 9.5 : 2.2);
+
   let mx = 0;
   let my = 0;
   if (keys.w || keys.arrowup) my -= 1;
@@ -556,12 +573,11 @@ function update(dt) {
   p.moving = len > 0.1;
   if (p.moving) {
     if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
-    const sp = (122 + p.level * 2.2) * (p.dashT > 0 ? 2.8 : 1) * (p.rageT > 0 ? 1.25 : 1);
+    const sp = (124 + p.level * 2.2) * (p.dashT > 0 ? 2.8 : 1) * (p.rageT > 0 ? 1.25 : 1);
     p.x = clamp(p.x + (mx / len) * sp * dt, 30, WORLD_W - 30);
     p.y = clamp(p.y + (my / len) * sp * dt * 0.9, 30, WORLD_H - 30);
-    p.anim += dt * 9;
-    p.trail.push({ x: p.x, y: p.y, life: 0.35 });
-    if (p.trail.length > 12) p.trail.shift();
+    p.trail.push({ x: p.x, y: p.y, life: 0.32 });
+    if (p.trail.length > 14) p.trail.shift();
   }
   for (const t of p.trail) t.life -= dt;
   p.trail = p.trail.filter((t) => t.life > 0);
@@ -587,27 +603,23 @@ function update(dt) {
     e.life -= dt;
   }
   state.effects = state.effects.filter((e) => e.life > 0);
-
   for (const f of state.floats) {
     f.y += f.vy * dt;
     f.vy += 40 * dt;
     f.life -= dt;
   }
   state.floats = state.floats.filter((f) => f.life > 0);
-
   for (const r of state.rings) {
     r.life -= dt;
     const t = 1 - r.life / r.maxLife;
     r.r = 8 + (r.maxR - 8) * t;
   }
   state.rings = state.rings.filter((r) => r.life > 0);
-
   for (const b of state.bolts) b.life -= dt;
   state.bolts = state.bolts.filter((b) => b.life > 0);
 
   maybeSpawnBosses();
   ui.zone.textContent = zoneName(p);
-
   const sx = (Math.random() - 0.5) * shake;
   const sy = (Math.random() - 0.5) * shake;
   cam.x = clamp(p.x - W * 0.5 + sx, 0, Math.max(0, WORLD_W - W));
@@ -633,9 +645,11 @@ function renderAbilities() {
   if (!p) return;
   ui.abilityBar.innerHTML = ABILITIES.map((a) => {
     const cd = p.cds[a.id] || 0;
-    const pct = cd > 0 ? (cd / a.cd) * 100 : 0;
+    const max = abilityCd(p, a.id);
+    const pct = cd > 0 ? (cd / max) * 100 : 0;
+    const lvl = p.abilityLvl[a.id] || 0;
     return `<button type="button" class="ability-slot ${a.cls} ${cd <= 0 ? "is-ready" : ""}" data-ability="${a.id}">
-      <span class="key">${a.key}</span>
+      <span class="key">${a.key}${lvl ? `·${lvl}` : ""}</span>
       <span class="icon">${a.icon}</span>
       <span>${a.name}</span>
       <i class="cd-mask" style="height:${pct}%"></i>
@@ -656,98 +670,142 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawGround() {
-  ctx.fillStyle = "#142218";
-  ctx.fillRect(0, 0, W, H);
-  const g = ctx.createLinearGradient(0, 0, 0, 140);
-  g.addColorStop(0, "#0a1424");
-  g.addColorStop(1, "rgba(20,34,24,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, 140);
+/** Рисует оружие в руке — у каждого свой силуэт */
+function drawWeaponInHand(wpn, facing, swing) {
+  const f = facing;
+  ctx.save();
+  ctx.translate(10 * f, -8);
+  ctx.rotate(f * (-0.55 + swing * 2.0));
+  ctx.shadowColor = wpn.color;
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = wpn.color;
 
-  const cell = 64;
-  const ox = -((cam.x / cell) % 1) * cell;
-  const oy = -((cam.y / cell) % 1) * cell;
-  for (let y = oy - cell; y < H + cell; y += cell) {
-    for (let x = ox - cell; x < W + cell; x += cell) {
-      const wx = cam.x + x;
-      const wy = cam.y + y;
-      const n = Math.sin(wx * 0.012) * Math.cos(wy * 0.01);
-      ctx.fillStyle = n > 0.2 ? "#1d3326" : n < -0.25 ? "#101c16" : "#173024";
-      ctx.fillRect(x, y, cell + 1, cell + 1);
-    }
-  }
-
-  // soft light under player
-  if (state.player) {
-    const px = state.player.x - cam.x;
-    const py = state.player.y - cam.y;
-    const light = ctx.createRadialGradient(px, py, 10, px, py, 220);
-    light.addColorStop(0, state.player.rageT > 0 ? "rgba(251,113,133,0.16)" : "rgba(34,211,238,0.12)");
-    light.addColorStop(1, "transparent");
-    ctx.fillStyle = light;
-    ctx.fillRect(px - 220, py - 220, 440, 440);
-  }
-}
-
-function drawTree(t) {
-  const x = t.x - cam.x;
-  const y = t.y - cam.y;
-  if (x < -90 || x > W + 90 || y < -20 || y > H + 170) return;
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(x, y + 6, 24 * t.shade, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#4a2f1a";
-  ctx.fillRect(x - t.trunk / 2, y - t.h * 0.45, t.trunk, t.h * 0.5);
-  const layers = [
-    { oy: -t.h * 0.52, r: 30 * t.shade, c: "#14532d" },
-    { oy: -t.h * 0.7, r: 25 * t.shade, c: "#166534" },
-    { oy: -t.h * 0.88, r: 18 * t.shade, c: "#22c55e" },
-  ];
-  for (const L of layers) {
-    ctx.fillStyle = L.c;
+  const style = wpn.style;
+  if (style === "dagger") {
+    ctx.fillRect(0, -2, 26, 4);
     ctx.beginPath();
-    ctx.ellipse(x, y + L.oy, L.r, L.r * 0.82, 0, 0, Math.PI * 2);
+    ctx.moveTo(26, -3);
+    ctx.lineTo(34, 0);
+    ctx.lineTo(26, 3);
     ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-4, -5, 8, 10);
+  } else if (style === "sword" || style === "blade") {
+    ctx.fillRect(0, -3.5, style === "blade" ? 42 : 34, 7);
+    ctx.beginPath();
+    ctx.moveTo(style === "blade" ? 42 : 34, -4);
+    ctx.lineTo((style === "blade" ? 42 : 34) + 10, 0);
+    ctx.lineTo(style === "blade" ? 42 : 34, 4);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-6, -7, 12, 14);
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillRect(-2, -9, 4, 18);
+    if (style === "blade") {
+      ctx.strokeStyle = "rgba(45,212,191,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4, 0);
+      ctx.lineTo(40, 0);
+      ctx.stroke();
+    }
+  } else if (style === "axe") {
+    ctx.fillStyle = "#78716c";
+    ctx.fillRect(0, -2.5, 28, 5);
+    ctx.fillStyle = wpn.color;
+    ctx.beginPath();
+    ctx.arc(28, 0, 14, -1.2, 1.2);
+    ctx.lineTo(28, 0);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-5, -6, 10, 12);
+  } else if (style === "spear") {
+    ctx.fillStyle = "#a8a29e";
+    ctx.fillRect(0, -1.8, 52, 3.6);
+    ctx.fillStyle = wpn.color;
+    ctx.beginPath();
+    ctx.moveTo(52, -5);
+    ctx.lineTo(64, 0);
+    ctx.lineTo(52, 5);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-4, -5, 8, 10);
+  } else if (style === "hammer") {
+    ctx.fillStyle = "#a8a29e";
+    ctx.fillRect(0, -2, 26, 4);
+    ctx.fillStyle = wpn.color;
+    roundRect(22, -12, 22, 24, 4);
+    ctx.fill();
+    ctx.fillStyle = "#fde68a";
+    ctx.fillRect(26, -8, 14, 6);
+    ctx.fillStyle = "#78716c";
+    ctx.fillRect(-5, -5, 10, 10);
+  } else if (style === "dual") {
+    ctx.fillRect(0, -2, 28, 4);
+    ctx.beginPath();
+    ctx.moveTo(28, -3);
+    ctx.lineTo(36, 0);
+    ctx.lineTo(28, 3);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-3, -4, 7, 8);
+    // second blade behind
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = wpn.color;
+    ctx.save();
+    ctx.translate(-2 * f, 6);
+    ctx.rotate(f * -0.35);
+    ctx.fillRect(0, -2, 24, 3.5);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  } else if (style === "scythe") {
+    ctx.fillStyle = "#78716c";
+    ctx.fillRect(0, -2, 40, 4);
+    ctx.fillStyle = wpn.color;
+    ctx.beginPath();
+    ctx.moveTo(34, -2);
+    ctx.quadraticCurveTo(58, -28, 48, 8);
+    ctx.quadraticCurveTo(44, -4, 34, 2);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-5, -5, 10, 10);
+  } else if (style === "staff") {
+    ctx.fillStyle = "#a8a29e";
+    ctx.fillRect(0, -2, 44, 4);
+    ctx.fillStyle = wpn.color;
+    ctx.beginPath();
+    ctx.arc(48, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ecfeff";
+    ctx.beginPath();
+    ctx.arc(48, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(-4, -5, 8, 10);
   }
-  ctx.fillStyle = "rgba(187,247,208,0.15)";
-  ctx.beginPath();
-  ctx.ellipse(x - 6, y - t.h * 0.85, 8, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
 
-function drawRock(r) {
-  const x = r.x - cam.x;
-  const y = r.y - cam.y;
-  if (x < -40 || x > W + 40 || y < -40 || y > H + 40) return;
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, r.r, r.r * 0.35, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#64748b";
-  ctx.beginPath();
-  ctx.ellipse(x, y - r.r * 0.2, r.r, r.r * 0.7, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#cbd5e1";
-  ctx.beginPath();
-  ctx.ellipse(x - r.r * 0.25, y - r.r * 0.4, r.r * 0.3, r.r * 0.18, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawHero(p) {
   const x = p.x - cam.x;
   const y = p.y - cam.y;
-  const bob = p.moving ? Math.sin(p.anim) * 2.5 : 0;
   const f = p.facing;
   const wpn = weaponOf(p);
+  const walk = p.anim;
+  const breath = Math.sin(state.time * 2.4) * 1.2;
+  const bob = p.moving ? Math.sin(walk) * 3.2 : breath;
+  const lean = p.moving ? f * 0.08 : 0;
+  const leg = p.moving ? Math.sin(walk) * 10 : Math.sin(state.time * 1.5) * 1.5;
+  const arm = p.moving ? Math.sin(walk + Math.PI) * 0.45 : Math.sin(state.time * 1.5) * 0.08;
+  const swing = p.attackFlash > 0 ? (0.22 - p.attackFlash) / 0.22 : 0;
 
-  // dash trails
   for (const t of p.trail) {
-    ctx.globalAlpha = t.life * 0.45;
+    ctx.globalAlpha = t.life * 0.4;
     ctx.fillStyle = p.rageT > 0 ? "#fb7185" : "#67e8f9";
     ctx.beginPath();
-    ctx.ellipse(t.x - cam.x, t.y - cam.y, 10, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(t.x - cam.x, t.y - cam.y, 11, 5, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -756,76 +814,148 @@ function drawHero(p) {
   ctx.translate(x, y);
   if (p.invuln > 0 && ((state.time * 22) | 0) % 2 === 0) ctx.globalAlpha = 0.4;
 
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.38)";
   ctx.beginPath();
-  ctx.ellipse(0, 5, 17, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 6, 18, 7, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (p.rageT > 0) {
-    ctx.strokeStyle = `rgba(251,113,133,${0.35 + Math.sin(state.time * 10) * 0.2})`;
+    ctx.strokeStyle = `rgba(251,113,133,${0.4 + Math.sin(state.time * 12) * 0.2})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, -20, 34, 0, Math.PI * 2);
+    ctx.arc(0, -22, 36, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  ctx.translate(0, bob - 6);
-  const leg = p.moving ? Math.sin(p.anim) * 8 : 0;
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(-9 + leg * 0.2, 10, 7, 15);
-  ctx.fillRect(2 - leg * 0.2, 10, 7, 15);
+  ctx.translate(0, bob - 4);
+  ctx.rotate(lean);
 
-  const body = ctx.createLinearGradient(-14, -30, 14, 12);
-  body.addColorStop(0, p.rageT > 0 ? "#fda4af" : "#a5f3fc");
-  body.addColorStop(1, p.rageT > 0 ? "#be123c" : "#0e7490");
-  ctx.fillStyle = body;
-  roundRect(-13, -28, 26, 38, 8);
+  // cape
+  ctx.fillStyle = p.rageT > 0 ? "#9f1239" : "#0e7490";
+  ctx.beginPath();
+  ctx.moveTo(-6 * f, -22);
+  ctx.quadraticCurveTo(-28 * f + Math.sin(walk * 0.8) * 6, -8, -22 * f, 18 + Math.sin(walk) * 3);
+  ctx.lineTo(-4 * f, 10);
+  ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+
+  // back arm
+  ctx.save();
+  ctx.translate(-6 * f, -14);
+  ctx.rotate(f * (-0.4 + arm * 0.7));
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-3, 0, 6, 16);
+  ctx.restore();
+
+  // legs with boots
+  ctx.fillStyle = "#1e293b";
+  ctx.save();
+  ctx.translate(-6, 12);
+  ctx.rotate((leg * Math.PI) / 180);
+  roundRect(-4, 0, 8, 16, 3);
+  ctx.fill();
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(-5, 14, 10, 5);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(5, 12);
+  ctx.rotate((-leg * Math.PI) / 180);
+  ctx.fillStyle = "#1e293b";
+  roundRect(-4, 0, 8, 16, 3);
+  ctx.fill();
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(-5, 14, 10, 5);
+  ctx.restore();
+
+  // torso
+  const body = ctx.createLinearGradient(-14, -32, 14, 14);
+  body.addColorStop(0, p.rageT > 0 ? "#fda4af" : "#a5f3fc");
+  body.addColorStop(0.55, p.rageT > 0 ? "#e11d48" : "#22d3ee");
+  body.addColorStop(1, p.rageT > 0 ? "#881337" : "#0e7490");
+  ctx.fillStyle = body;
+  roundRect(-13, -28, 26, 40, 9);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
+  // belt + glow gem
   ctx.fillStyle = "#f97316";
-  ctx.fillRect(-13, -2, 26, 6);
-
+  ctx.fillRect(-13, 0, 26, 7);
   ctx.fillStyle = "#fde68a";
   ctx.beginPath();
-  ctx.arc(0, -38, 12, 0, Math.PI * 2);
+  ctx.arc(0, 3.5, 3.5, 0, Math.PI * 2);
   ctx.fill();
+
+  // head
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.arc(0, -40, 13, 0, Math.PI * 2);
+  ctx.fill();
+  // hair
   ctx.fillStyle = "#0f172a";
   ctx.beginPath();
-  ctx.arc(-2 * f, -42, 10, Math.PI * 1.05, Math.PI * 2);
+  ctx.ellipse(-1 * f, -46, 12, 9, f * -0.2, Math.PI * 0.9, Math.PI * 2.1);
+  ctx.fill();
+  // ear
+  ctx.fillStyle = "#fcd34d";
+  ctx.beginPath();
+  ctx.arc(-11 * f, -40, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // eye glow
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.ellipse(5 * f, -40, 3.2, 3.6, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#22d3ee";
   ctx.beginPath();
-  ctx.arc(5 * f, -38, 2.4, 0, Math.PI * 2);
+  ctx.arc(6 * f, -40, 1.6, 0, Math.PI * 2);
   ctx.fill();
+  // mouth soft
+  ctx.strokeStyle = "rgba(120,53,15,0.45)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(3 * f, -34, 3, 0.1, Math.PI - 0.1);
+  ctx.stroke();
 
-  const swing = p.attackFlash > 0 ? (0.2 - p.attackFlash) / 0.2 : 0;
+  // front arm + weapon
   ctx.save();
-  ctx.translate(10 * f, -10);
-  ctx.rotate(f * (-0.7 + swing * 2.1));
-  ctx.shadowColor = wpn.color;
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = wpn.color;
-  ctx.fillRect(0, -3.5, (wpn.reach || 48) * 0.72, 7);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#fbbf24";
-  ctx.fillRect(-5, -6, 12, 12);
+  ctx.translate(8 * f, -12);
+  const armRot = p.attackFlash > 0 ? f * (-0.9 + swing * 2.3) : f * (0.15 + arm);
+  ctx.rotate(armRot);
+  ctx.fillStyle = "#fde68a";
+  ctx.fillRect(-3, 0, 6, 15);
+  // hand
+  ctx.beginPath();
+  ctx.arc(0, 16, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  // weapon attached to hand
+  ctx.translate(0, 14);
+  drawWeaponInHand(wpn, f, swing);
   ctx.restore();
 
+  // attack slash glow
   if (p.attackFlash > 0) {
-    ctx.strokeStyle = `rgba(253,230,138,${p.attackFlash * 5})`;
+    ctx.strokeStyle = wpn.color;
+    ctx.globalAlpha = p.attackFlash * 4;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(0, -12, wpn.reach * 0.65, f > 0 ? -1.2 : Math.PI - 0.15, f > 0 ? 0.55 : Math.PI + 1.2);
+    ctx.arc(0, -10, wpn.reach * 0.62, f > 0 ? -1.25 : Math.PI - 0.2, f > 0 ? 0.6 : Math.PI + 1.25);
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
+
+  // name
   ctx.fillStyle = "#67e8f9";
   ctx.font = "700 12px Chakra Petch, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(p.name, x, y - 68);
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 4;
+  ctx.fillText(p.name, x, y - 72);
+  ctx.shadowBlur = 0;
 }
 
 function drawMonster(m) {
@@ -834,26 +964,22 @@ function drawMonster(m) {
   const y = m.y - cam.y;
   if (x < -110 || x > W + 110 || y < -130 || y > H + 90) return;
   const bob = Math.sin(m.anim * 4) * (m.boss ? 3 : 2);
-
   ctx.save();
   ctx.translate(x, y + bob);
   if (m.hitFlash > 0) ctx.filter = "brightness(2.2)";
-
   ctx.fillStyle = "rgba(0,0,0,0.3)";
   ctx.beginPath();
   ctx.ellipse(0, 6, m.w * 0.45, 6, 0, 0, Math.PI * 2);
   ctx.fill();
-
   if (m.boss) {
     const aura = ctx.createRadialGradient(0, -m.h * 0.4, 10, 0, -m.h * 0.4, m.w);
-    aura.addColorStop(0, m.color + "55");
+    aura.addColorStop(0, m.color + "66");
     aura.addColorStop(1, "transparent");
     ctx.fillStyle = aura;
     ctx.beginPath();
     ctx.arc(0, -m.h * 0.4, m.w, 0, Math.PI * 2);
     ctx.fill();
   }
-
   if (m.typeId === "slime") {
     ctx.fillStyle = m.color;
     ctx.beginPath();
@@ -892,17 +1018,12 @@ function drawMonster(m) {
     ctx.arc(5, -m.h * 0.88, 2.6, 0, Math.PI * 2);
     ctx.fill();
   }
-
   ctx.filter = "none";
   ctx.restore();
-
   const bw = Math.max(30, m.w);
   ctx.fillStyle = "rgba(0,0,0,0.55)";
   ctx.fillRect(x - bw / 2, y - m.h - 16, bw, 6);
-  const hg = ctx.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0);
-  hg.addColorStop(0, m.boss ? "#f59e0b" : "#fb7185");
-  hg.addColorStop(1, m.boss ? "#fde68a" : "#fecaca");
-  ctx.fillStyle = hg;
+  ctx.fillStyle = m.boss ? "#fbbf24" : "#fb7185";
   ctx.fillRect(x - bw / 2, y - m.h - 16, bw * clamp(m.hp / m.maxHp, 0, 1), 6);
   ctx.fillStyle = m.boss ? "#fde68a" : "#e2e8f0";
   ctx.font = m.boss ? "700 12px Orbitron, sans-serif" : "600 10px Manrope, sans-serif";
@@ -910,10 +1031,45 @@ function drawMonster(m) {
   ctx.fillText(m.name, x, y - m.h - 20);
 }
 
+function drawTree(t) {
+  const x = t.x - cam.x;
+  const y = t.y - cam.y;
+  if (x < -90 || x > W + 90 || y < -20 || y > H + 170) return;
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 6, 24 * t.shade, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#4a2f1a";
+  ctx.fillRect(x - t.trunk / 2, y - t.h * 0.45, t.trunk, t.h * 0.5);
+  for (const L of [
+    { oy: -t.h * 0.52, r: 30 * t.shade, c: "#14532d" },
+    { oy: -t.h * 0.7, r: 25 * t.shade, c: "#166534" },
+    { oy: -t.h * 0.88, r: 18 * t.shade, c: "#22c55e" },
+  ]) {
+    ctx.fillStyle = L.c;
+    ctx.beginPath();
+    ctx.ellipse(x, y + L.oy, L.r, L.r * 0.82, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRock(r) {
+  const x = r.x - cam.x;
+  const y = r.y - cam.y;
+  if (x < -40 || x > W + 40 || y < -40 || y > H + 40) return;
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, r.r, r.r * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#64748b";
+  ctx.beginPath();
+  ctx.ellipse(x, y - r.r * 0.2, r.r, r.r * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawDrop(d) {
   const x = d.x - cam.x;
   const y = d.y - cam.y + Math.sin(d.bob) * 4;
-  if (x < -20 || x > W + 20) return;
   if (d.kind === "gold") {
     ctx.shadowColor = "#fbbf24";
     ctx.shadowBlur = 10;
@@ -922,10 +1078,6 @@ function drawDrop(d) {
     ctx.arc(x, y, 7, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "#fef3c7";
-    ctx.beginPath();
-    ctx.arc(x - 2, y - 2, 2.5, 0, Math.PI * 2);
-    ctx.fill();
   } else if (d.kind === "heart") {
     ctx.fillStyle = "#fb7185";
     ctx.beginPath();
@@ -940,6 +1092,37 @@ function drawDrop(d) {
     ctx.fillRect(x - 11, y - 6, 22, 15);
     ctx.fillStyle = "#fbbf24";
     ctx.fillRect(x - 11, y - 11, 22, 7);
+  }
+}
+
+function drawGround() {
+  ctx.fillStyle = "#142218";
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, 0, 140);
+  g.addColorStop(0, "#0a1424");
+  g.addColorStop(1, "rgba(20,34,24,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, 140);
+  const cell = 64;
+  const ox = -((cam.x / cell) % 1) * cell;
+  const oy = -((cam.y / cell) % 1) * cell;
+  for (let y = oy - cell; y < H + cell; y += cell) {
+    for (let x = ox - cell; x < W + cell; x += cell) {
+      const wx = cam.x + x;
+      const wy = cam.y + y;
+      const n = Math.sin(wx * 0.012) * Math.cos(wy * 0.01);
+      ctx.fillStyle = n > 0.2 ? "#1d3326" : n < -0.25 ? "#101c16" : "#173024";
+      ctx.fillRect(x, y, cell + 1, cell + 1);
+    }
+  }
+  if (state.player) {
+    const px = state.player.x - cam.x;
+    const py = state.player.y - cam.y;
+    const light = ctx.createRadialGradient(px, py, 10, px, py, 240);
+    light.addColorStop(0, state.player.rageT > 0 ? "rgba(251,113,133,0.18)" : "rgba(34,211,238,0.14)");
+    light.addColorStop(1, "transparent");
+    ctx.fillStyle = light;
+    ctx.fillRect(px - 240, py - 240, 480, 480);
   }
 }
 
@@ -961,9 +1144,12 @@ function drawFx() {
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(b.x1 - cam.x, b.y1 - cam.y);
-    const mx = (b.x1 + b.x2) / 2 + rand(-8, 8);
-    const my = (b.y1 + b.y2) / 2 + rand(-12, 12);
-    ctx.quadraticCurveTo(mx - cam.x, my - cam.y, b.x2 - cam.x, b.y2 - cam.y);
+    ctx.quadraticCurveTo(
+      (b.x1 + b.x2) / 2 + rand(-10, 10) - cam.x,
+      (b.y1 + b.y2) / 2 + rand(-14, 14) - cam.y,
+      b.x2 - cam.x,
+      b.y2 - cam.y
+    );
     ctx.stroke();
     ctx.shadowBlur = 0;
   }
@@ -1001,7 +1187,6 @@ function draw() {
   sprites.sort((a, b) => a.y - b.y);
   for (const s of sprites) s.draw();
   drawFx();
-
   const vg = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.15, W / 2, H * 0.55, H * 0.8);
   vg.addColorStop(0, "transparent");
   vg.addColorStop(1, "rgba(0,0,0,0.4)");
@@ -1025,57 +1210,102 @@ function renderShop() {
   const p = state.player;
   ui.shopGold.textContent = String(p.gold);
   ui.shopList.innerHTML = "";
-  for (const w of WEAPONS) {
-    if (w.id === "dagger") continue;
-    const owned = !!p.owned[w.id];
-    const row = document.createElement("div");
-    row.className = "shop-item";
-    row.innerHTML = `<div><h3>${w.name}</h3><p>Урон ${w.dmg} · радиус ${w.reach}</p></div>`;
-    const btn = document.createElement("button");
-    btn.className = "shop-buy";
-    btn.textContent = owned ? (p.weaponId === w.id ? "В руках" : "Взять") : `${w.price} ◆`;
-    btn.disabled = owned ? p.weaponId === w.id : p.gold < w.price;
-    btn.onclick = () => {
-      if (owned) p.weaponId = w.id;
-      else if (p.gold >= w.price) {
-        p.gold -= w.price;
-        p.owned[w.id] = true;
-        p.weaponId = w.id;
-        toast(`⚔ ${w.name}`);
-      }
-      renderShop();
-      updateHud();
-    };
-    row.appendChild(btn);
-    ui.shopList.appendChild(row);
+
+  if (shopTab === "weapons") {
+    for (const w of WEAPONS) {
+      if (w.id === "dagger") continue;
+      const owned = !!p.owned[w.id];
+      const row = document.createElement("div");
+      row.className = "shop-item";
+      row.innerHTML = `<div><h3>${w.name}</h3><p>Урон ${w.dmg} · радиус ${w.reach} · видно в руке</p></div>`;
+      const btn = document.createElement("button");
+      btn.className = "shop-buy";
+      btn.textContent = owned ? (p.weaponId === w.id ? "В руках" : "Взять") : `${w.price} ◆`;
+      btn.disabled = owned ? p.weaponId === w.id : p.gold < w.price;
+      btn.onclick = () => {
+        if (owned) p.weaponId = w.id;
+        else if (p.gold >= w.price) {
+          p.gold -= w.price;
+          p.owned[w.id] = true;
+          p.weaponId = w.id;
+          toast(`⚔ ${w.name}`);
+        }
+        renderShop();
+        updateHud();
+      };
+      row.appendChild(btn);
+      ui.shopList.appendChild(row);
+    }
   }
-  for (const it of [
-    { name: "Зелье жизни", desc: "+55 HP", cost: 22, fn: () => (p.hp = Math.min(p.maxHp, p.hp + 55)) },
-    { name: "Эликсир опыта", desc: "Почти до след. уровня", cost: 90, fn: () => gainXp(p, xpToLevel(p.level) - p.xp) },
-  ]) {
-    const row = document.createElement("div");
-    row.className = "shop-item";
-    row.innerHTML = `<div><h3>${it.name}</h3><p>${it.desc}</p></div>`;
-    const btn = document.createElement("button");
-    btn.className = "shop-buy";
-    btn.textContent = `${it.cost} ◆`;
-    btn.disabled = p.gold < it.cost;
-    btn.onclick = () => {
-      if (p.gold < it.cost) return;
-      p.gold -= it.cost;
-      it.fn();
-      toast(it.name);
-      renderShop();
-      updateHud();
-    };
-    row.appendChild(btn);
-    ui.shopList.appendChild(row);
+
+  if (shopTab === "skills") {
+    for (const a of ABILITIES) {
+      const lvl = p.abilityLvl[a.id] || 0;
+      const cost = skillUpgradeCost(lvl);
+      const nextCd = (abilityBase(a.id).cd * Math.pow(0.86, lvl + 1)).toFixed(1);
+      const row = document.createElement("div");
+      row.className = "shop-item";
+      row.innerHTML = `<div><h3>${a.icon} ${a.name} · ур.${lvl}/5</h3><p>${a.desc}. След. откат ≈ ${nextCd}с, сильнее на 14%</p></div>`;
+      const btn = document.createElement("button");
+      btn.className = "shop-buy";
+      btn.textContent = lvl >= 5 ? "MAX" : `${cost} ◆`;
+      btn.disabled = lvl >= 5 || p.gold < cost;
+      btn.onclick = () => {
+        if (lvl >= 5 || p.gold < cost) return;
+        p.gold -= cost;
+        p.abilityLvl[a.id] = lvl + 1;
+        toast(`${a.name} → ур.${lvl + 1}`);
+        renderShop();
+        renderAbilities();
+        updateHud();
+      };
+      row.appendChild(btn);
+      ui.shopList.appendChild(row);
+    }
+  }
+
+  if (shopTab === "items") {
+    for (const it of [
+      { name: "Зелье жизни", desc: "+55 HP", cost: 22, fn: () => (p.hp = Math.min(p.maxHp, p.hp + 55)) },
+      { name: "Эликсир опыта", desc: "До следующего уровня", cost: 90, fn: () => gainXp(p, xpToLevel(p.level) - p.xp) },
+      {
+        name: "Сброс отката",
+        desc: "Все способности готовы",
+        cost: 70,
+        fn: () => {
+          p.cds = { dash: 0, bolt: 0, nova: 0, rage: 0 };
+        },
+      },
+    ]) {
+      const row = document.createElement("div");
+      row.className = "shop-item";
+      row.innerHTML = `<div><h3>${it.name}</h3><p>${it.desc}</p></div>`;
+      const btn = document.createElement("button");
+      btn.className = "shop-buy";
+      btn.textContent = `${it.cost} ◆`;
+      btn.disabled = p.gold < it.cost;
+      btn.onclick = () => {
+        if (p.gold < it.cost) return;
+        p.gold -= it.cost;
+        it.fn();
+        toast(it.name);
+        renderShop();
+        renderAbilities();
+        updateHud();
+      };
+      row.appendChild(btn);
+      ui.shopList.appendChild(row);
+    }
   }
 }
 
 function startGame() {
-  if (audioCtx?.state === "suspended") audioCtx.resume();
-  else beep(440, 0.01, "sine", 0.001);
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {
+    /* ignore */
+  }
   const name = (ui.name.value || "Странник").trim().slice(0, 14);
   buildWorld();
   state.player = makePlayer(name);
@@ -1097,6 +1327,7 @@ function respawn() {
   state.player.level = Math.max(1, old.level - 1);
   state.player.owned = { ...old.owned };
   state.player.weaponId = old.weaponId;
+  state.player.abilityLvl = { ...old.abilityLvl };
   state.player.maxHp = 100 + (state.player.level - 1) * 12;
   state.player.hp = state.player.maxHp;
   ui.dead.hidden = true;
@@ -1144,6 +1375,14 @@ document.getElementById("btn-shop").onclick = () => {
 document.getElementById("shop-close").onclick = () => {
   ui.shop.hidden = true;
 };
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("is-on"));
+    tab.classList.add("is-on");
+    shopTab = tab.dataset.tab;
+    renderShop();
+  };
+});
 
 let stickId = null;
 ui.stick.addEventListener("pointerdown", (e) => {
@@ -1183,8 +1422,7 @@ document.getElementById("fire-btn").addEventListener("pointerup", () => {
 document.querySelectorAll(".skill-btn").forEach((btn) => {
   btn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    const map = { 1: "dash", 2: "bolt", 3: "nova", 4: "rage" };
-    useAbility(map[btn.dataset.skill]);
+    useAbility({ 1: "dash", 2: "bolt", 3: "nova", 4: "rage" }[btn.dataset.skill]);
   });
 });
 

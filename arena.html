@@ -14,10 +14,10 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=30" />
-    <link rel="stylesheet" href="./arena.css?v=30" />
+    <link rel="stylesheet" href="./styles.css?v=31" />
+    <link rel="stylesheet" href="./arena.css?v=31" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-    <script src="./vk-bridge-init.js?v=30"></script>
+    <script src="./vk-bridge-init.js?v=31"></script>
   </head>
   <body class="arena-body">
     <div id="boot" class="boot">
@@ -70,6 +70,11 @@
           <button type="button" class="shop-close" id="shop-close">✕</button>
         </header>
         <p class="shop-scrap">Золото: <strong id="shop-gold">0</strong></p>
+        <div class="shop-tabs">
+          <button type="button" class="tab is-on" data-tab="weapons">Оружие</button>
+          <button type="button" class="tab" data-tab="skills">Способности</button>
+          <button type="button" class="tab" data-tab="items">Зелья</button>
+        </div>
         <div class="shop-list" id="shop-list"></div>
       </div>
     </div>
@@ -92,6 +97,6 @@
       <button type="button" class="fire-btn" id="fire-btn">⚔</button>
     </div>
 
-    <script src="./arena.js?v=30"></script>
+    <script src="./arena.js?v=31"></script>
   </body>
 </html>
