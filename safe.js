@@ -2178,7 +2178,13 @@ lobbyRoot.add(lobbyFloor);
 
 const lobbyCeil = new THREE.Mesh(
   new THREE.BoxGeometry(7.5, 0.2, 12),
-  new THREE.MeshStandardMaterial({ color: 0xc8b8a0, roughness: 0.9 })
+  new THREE.MeshStandardMaterial({
+    color: 0xd6c9b4,
+    roughness: 0.92,
+    // чуть тёплого self-light, чтобы на мобилках ACES не уводил потолок в оливковый
+    emissive: 0x2a2418,
+    emissiveIntensity: 0.08,
+  })
 );
 lobbyCeil.position.set(0, 4.15, 20);
 lobbyCeil.receiveShadow = true;
@@ -2211,8 +2217,9 @@ lobbyRoot.add(lobbyCeil);
   trim.position.set(0, 4.08, 20 + zOff);
   lobbyRoot.add(trim);
   const lampMat = new THREE.MeshStandardMaterial({
-    color: 0x6a6050,
-    emissive: 0x222018,
+    // тёплый тауп без оливкового (на телефоне 0x6a6050 читался как зелёный потолок)
+    color: 0x5a5348,
+    emissive: 0x1c1812,
     emissiveIntensity: 0.04,
   });
   const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.04, 0.28), lampMat);
@@ -2315,8 +2322,8 @@ function applyLobbyCeilingLights(on, animate = false) {
     } else {
       L.light.intensity = 0;
       L.mat.emissiveIntensity = 0.04;
-      L.mat.emissive.setHex(0x222018);
-      L.mat.color.setHex(0x6a6050);
+      L.mat.emissive.setHex(0x1c1812);
+      L.mat.color.setHex(0x5a5348);
     }
   }
   if (phase === "lobby") {
