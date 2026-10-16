@@ -152,7 +152,8 @@ let lobbyDoorShake = 0;
 let vkUser = { name: "Гость", photo: "", id: "0" };
 
 /** эвент: дверь закрыта, пока не выйдет таймер (потом карта) */
-let EVENT_UNLOCK_SEC = 60;
+const EVENT_UNLOCK_DAYS = 12;
+let EVENT_UNLOCK_SEC = EVENT_UNLOCK_DAYS * 24 * 60 * 60; // 12 суток — общий таймер с хостом
 const EVENT_PLAYERS_KEY = "futurum_event_players_v1";
 const SAFE_HOST_KEY = "futurum_safe_host";
 let eventStartAt = performance.now(); // локальный запасной старт
@@ -392,10 +393,10 @@ const FOCUS = {
     pitchRange: 0.14,
   },
   timerBoard: {
-    target: new THREE.Vector3(2.15, 2.1, 16.64),
-    dist: 1.3,
-    yawRange: 0.2,
-    pitchRange: 0.14,
+    target: new THREE.Vector3(2.15, 2.05, 16.64),
+    dist: 1.45,
+    yawRange: 0.22,
+    pitchRange: 0.16,
   },
   radio: {
     // правая стена: стоим слева от радио и смотрим на +X
@@ -3603,11 +3604,25 @@ const playersTex = new THREE.CanvasTexture(playersCanvas);
 playersTex.colorSpace = THREE.SRGBColorSpace;
 
 const timerCanvas = document.createElement("canvas");
-timerCanvas.width = 384;
-timerCanvas.height = 384;
+timerCanvas.width = 512;
+timerCanvas.height = 448;
 const timerCtx = timerCanvas.getContext("2d");
 const timerTex = new THREE.CanvasTexture(timerCanvas);
 timerTex.colorSpace = THREE.SRGBColorSpace;
+
+function formatEventCountdown(secLeft) {
+  const s = Math.ceil(Math.max(0, secLeft));
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (days > 0) return `${days}д ${hh}:${mm}:${ss}`;
+  if (hours > 0) return `${hh}:${mm}:${ss}`;
+  return `${mm}:${ss}`;
+}
 
 const playerPhotoCache = new Map();
 let playersScroll = 0; // смещение списка (px в canvas)
@@ -3754,46 +3769,50 @@ function drawTimerBoard() {
   const left = eventSecondsLeft();
   const ready = left <= 0;
   const isOpen = !!(lobbyDoorOpen || lobbyOpening);
+  const total = Math.max(1, EVENT_UNLOCK_SEC);
   ctx.fillStyle = "#0e1116";
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = isOpen ? "#44ff66" : ready ? "#c9a86a" : "#8a7060";
-  ctx.lineWidth = 8;
-  ctx.strokeRect(6, 6, w - 12, h - 12);
+  ctx.lineWidth = 10;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
   ctx.fillStyle = isOpen ? "#44ff66" : "#c9a86a";
-  ctx.font = "700 22px sans-serif";
+  ctx.font = "700 28px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(isOpen ? "ДВЕРЬ ОТКРЫТА" : "ДВЕРЬ ЗАКРЫТА", w / 2, 48);
+  ctx.fillText(isOpen ? "ДВЕРЬ ОТКРЫТА" : "ДВЕРЬ ЗАКРЫТА", w / 2, 52);
   ctx.fillStyle = "#6a7380";
-  ctx.font = "14px sans-serif";
+  ctx.font = "16px sans-serif";
   let hint = "ожидание таймера";
   if (isOpen) hint = "проход открыт";
   else if (passUnlocked) hint = "потяните ручку";
   else if (!passTaken) hint = "возьмите пропуск";
   else if (ready) hint = "приложите карту";
   else hint = "пропуск у вас · ждите";
-  ctx.fillText(hint, w / 2, 76);
+  ctx.fillText(hint, w / 2, 84);
 
-  const sec = Math.ceil(Math.max(0, left));
-  const mm = String(Math.floor(sec / 60)).padStart(2, "0");
-  const ss = String(sec % 60).padStart(2, "0");
+  const clock = ready || isOpen ? "00:00" : formatEventCountdown(left);
+  const longClock = clock.length >= 10;
   ctx.fillStyle = isOpen ? "#88ffaa" : ready ? "#e8d4a8" : "#e8ecf2";
-  ctx.font = "700 72px monospace";
-  ctx.fillText(ready || isOpen ? "00:00" : `${mm}:${ss}`, w / 2, 190);
+  ctx.font = longClock ? "700 48px monospace" : "700 64px monospace";
+  ctx.fillText(clock, w / 2, 175);
 
   // кольцо прогресса
   const cx = w / 2;
-  const cy = 280;
-  const r = 48;
+  const cy = 310;
+  const r = 58;
   ctx.strokeStyle = "#2a3038";
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 12;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
-  const prog = isOpen || ready ? 1 : 1 - left / EVENT_UNLOCK_SEC;
+  const prog = isOpen || ready ? 1 : 1 - left / total;
   ctx.strokeStyle = isOpen ? "#44ff66" : "#c9a86a";
   ctx.beginPath();
   ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
   ctx.stroke();
+
+  ctx.fillStyle = "#5a6570";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(`до открытия · ${EVENT_UNLOCK_DAYS} дн.`, w / 2, h - 28);
 
   timerTex.needsUpdate = true;
 }
@@ -3833,27 +3852,27 @@ const playersBoardTargets = [playersBoardFrame, playersBoardScreen, playersBoard
   lobbyRoot.add(bevel);
 }
 
-// таймер — клик = подойти
+// таймер — клик = подойти (крупнее: формат «12д 00:00:00»)
 const timerBoardFrame = new THREE.Mesh(
-  new THREE.BoxGeometry(0.9, 0.9, 0.1),
+  new THREE.BoxGeometry(1.35, 1.2, 0.1),
   new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.55, roughness: 0.35 })
 );
-timerBoardFrame.position.set(2.15, 2.15, 16.58);
+timerBoardFrame.position.set(2.15, 2.05, 16.58);
 timerBoardFrame.castShadow = true;
 timerBoardFrame.userData.kind = "timerBoard";
 lobbyRoot.add(timerBoardFrame);
 const timerBoardScreen = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.78, 0.78),
+  new THREE.PlaneGeometry(1.22, 1.05),
   new THREE.MeshBasicMaterial({ map: timerTex })
 );
-timerBoardScreen.position.set(2.15, 2.15, 16.64);
+timerBoardScreen.position.set(2.15, 2.05, 16.64);
 timerBoardScreen.userData.kind = "timerBoard";
 lobbyRoot.add(timerBoardScreen);
 const timerBoardHit = new THREE.Mesh(
-  new THREE.BoxGeometry(1.05, 1.05, 0.4),
+  new THREE.BoxGeometry(1.5, 1.35, 0.4),
   new THREE.MeshBasicMaterial({ visible: false })
 );
-timerBoardHit.position.set(2.15, 2.15, 16.7);
+timerBoardHit.position.set(2.15, 2.05, 16.7);
 timerBoardHit.userData.kind = "timerBoard";
 lobbyRoot.add(timerBoardHit);
 const timerBoardTargets = [timerBoardFrame, timerBoardScreen, timerBoardHit];

@@ -20,7 +20,7 @@ PORT = 8787
 PLAYER_TTL_SEC = 5 * 60
 MAX_EVENTS = 80
 MAX_PLAYERS = 64
-EVENT_UNLOCK_SEC = 60  # общий таймер двери для всех клиентов
+EVENT_UNLOCK_SEC = 12 * 24 * 60 * 60  # 12 суток — общий таймер двери для всех клиентов
 
 _lock = threading.Lock()
 _players: dict[str, dict] = {}
@@ -220,7 +220,8 @@ def main() -> None:
     print(f"  Локально:  http://127.0.0.1:{PORT}/")
     print(f"  Health:    http://127.0.0.1:{PORT}/api/health")
     print(f"  State:     http://127.0.0.1:{PORT}/api/state")
-    print(f"  Таймер:    {EVENT_UNLOCK_SEC} сек с момента запуска хоста")
+    days = EVENT_UNLOCK_SEC / (24 * 60 * 60)
+    print(f"  Таймер:    {days:g} дн. ({EVENT_UNLOCK_SEC} сек) с момента запуска хоста")
     print(f"  Сброс:     POST /api/timer/reset")
     print()
     print("  Для телефонов / VK нужен HTTPS-туннель — см. HOST.md")
