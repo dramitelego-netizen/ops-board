@@ -95,6 +95,9 @@ def _add_event(data: dict) -> dict:
         "pass": "разблокировал пропуск",
         "gate": "открыл круглую дверь",
         "safe": "открыл сейф",
+        "alarm": "ошибка доступа · сирена",
+        "cell": "открыл ячейку",
+        "timer_reset": "сбросил таймер эвента",
         "heartbeat": "онлайн",
     }
     label = detail or labels.get(etype, etype)

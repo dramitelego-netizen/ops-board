@@ -8,7 +8,7 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>FUTURUM · Хранилище</title>
-    <link rel="stylesheet" href="./safe.css?v=45" />
+    <link rel="stylesheet" href="./safe.css?v=46" />
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
     <script src="./vk-bridge-init.js?v=37"></script>
   </head>
@@ -16,9 +16,26 @@
     <canvas id="c"></canvas>
     <button type="button" id="room-back" class="room-back" hidden>← Назад</button>
     <button type="button" id="step-back" class="step-back" hidden>Отойти</button>
-    <button type="button" id="nav-left" class="side-nav side-nav-left" hidden disabled title="Скоро">←</button>
+    <button type="button" id="nav-left" class="side-nav side-nav-left" hidden title="Архив">← Архив</button>
     <button type="button" id="nav-right" class="side-nav side-nav-right" hidden>→ Код</button>
     <div id="peephole-mask" class="peephole-mask" hidden aria-hidden="true"></div>
+    <div id="peephole-status" class="peephole-status" hidden aria-hidden="true"></div>
+    <div id="alarm-flash" class="alarm-flash" hidden aria-hidden="true"></div>
+    <div id="note-overlay" class="note-overlay" hidden>
+      <div class="note-card">
+        <div id="note-title" class="note-title"></div>
+        <div id="note-body" class="note-body"></div>
+        <button type="button" id="note-close" class="note-close">Закрыть</button>
+      </div>
+    </div>
+    <div id="finale-overlay" class="finale-overlay" hidden>
+      <div class="finale-card">
+        <div class="finale-brand">FUTURUM</div>
+        <div id="finale-title" class="finale-title">Эвент пройден</div>
+        <div id="finale-body" class="finale-body"></div>
+        <button type="button" id="finale-close" class="note-close">Продолжить</button>
+      </div>
+    </div>
 
     <script type="importmap">
       {
@@ -28,6 +45,6 @@
         }
       }
     </script>
-    <script type="module" src="./safe.js?v=104"></script>
+    <script type="module" src="./safe.js?v=105"></script>
   </body>
 </html>

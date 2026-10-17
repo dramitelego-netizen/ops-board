@@ -290,6 +290,7 @@ function applyHostState(data) {
     last: p.last || "",
   }));
   safeHostEvents = Array.isArray(data.events) ? data.events : [];
+  if (typeof assignCellOwners === "function") assignCellOwners();
   if (typeof drawPlayersBoard === "function") drawPlayersBoard();
 }
 
@@ -322,6 +323,187 @@ async function hostEvent(type, detail = "") {
     detail: detail || undefined,
   });
   if (data?.state) applyHostState(data.state);
+}
+
+function isEventAdmin() {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("admin") === "1") {
+      localStorage.setItem("futurum_admin", "1");
+      return true;
+    }
+    return localStorage.getItem("futurum_admin") === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function hostResetTimer() {
+  if (!safeHostUrl) return false;
+  const data = await hostFetch("/api/timer/reset", {});
+  if (data?.state) {
+    applyHostState(data.state);
+    hostEvent("timer_reset", "сбросил таймер эвента");
+    return true;
+  }
+  return false;
+}
+
+/** UI: записка / финал / глазок / сирена */
+const noteOverlay = document.getElementById("note-overlay");
+const noteTitleEl = document.getElementById("note-title");
+const noteBodyEl = document.getElementById("note-body");
+const noteCloseBtn = document.getElementById("note-close");
+const finaleOverlay = document.getElementById("finale-overlay");
+const finaleTitleEl = document.getElementById("finale-title");
+const finaleBodyEl = document.getElementById("finale-body");
+const finaleCloseBtn = document.getElementById("finale-close");
+const peepholeStatusEl = document.getElementById("peephole-status");
+const alarmFlashEl = document.getElementById("alarm-flash");
+
+let codeFailCount = 0;
+let alarmUntil = 0;
+let finaleShown = false;
+let foundCodeHints = { mag: false, phone: false, dossier: false, cellKey: false, cellNote: false };
+
+function showNote(title, body) {
+  if (!noteOverlay) return;
+  if (noteTitleEl) noteTitleEl.textContent = title || "";
+  if (noteBodyEl) noteBodyEl.textContent = body || "";
+  noteOverlay.hidden = false;
+}
+
+function hideNote() {
+  if (noteOverlay) noteOverlay.hidden = true;
+}
+
+function showFinale(who, when) {
+  if (!finaleOverlay || finaleShown) return;
+  finaleShown = true;
+  if (finaleTitleEl) finaleTitleEl.textContent = "Эвент пройден";
+  if (finaleBodyEl) {
+    finaleBodyEl.textContent = [
+      who ? `Сейф вскрыл: ${who}` : "Сейф открыт",
+      when || new Date().toLocaleString("ru-RU"),
+      "",
+      "Хранилище FUTURUM · доступ получен",
+    ].join("\n");
+  }
+  finaleOverlay.hidden = false;
+}
+
+function hideFinale() {
+  if (finaleOverlay) finaleOverlay.hidden = true;
+}
+
+if (noteCloseBtn) noteCloseBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  hideNote();
+});
+if (noteOverlay) {
+  noteOverlay.addEventListener("click", (e) => {
+    if (e.target === noteOverlay) hideNote();
+  });
+}
+if (finaleCloseBtn) finaleCloseBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  hideFinale();
+});
+
+function updatePeepholeStatus() {
+  if (!peepholeStatusEl) return;
+  const on = !!(peepholeLooking && focus === "peephole");
+  peepholeStatusEl.hidden = !on;
+  if (!on) return;
+  const lit = hallLightOn || hallLightLevel > 0.35;
+  const line1 = lit ? "КОРИДОР · ЛАМПЫ ГОРЯТ" : "КОРИДОР · ТЕМНО";
+  const line2 = lit
+    ? "люминесцентный свет · панель справа"
+    : "дежурная лампа · ждать открытия";
+  peepholeStatusEl.innerHTML = `${line1}<br/><span style="opacity:.75;font-weight:500">${line2}</span>`;
+}
+
+function sfxSiren() {
+  ensureAudio();
+  if (!audioCtx || !sfxOut()) return;
+  const out = sfxOut();
+  const now = audioCtx.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(740 + i * 40, now + i * 0.22);
+    o.frequency.linearRampToValueAtTime(420, now + i * 0.22 + 0.18);
+    g.gain.setValueAtTime(0.0001, now + i * 0.22);
+    g.gain.exponentialRampToValueAtTime(0.09, now + i * 0.22 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.22 + 0.2);
+    o.connect(g);
+    g.connect(out);
+    o.start(now + i * 0.22);
+    o.stop(now + i * 0.22 + 0.22);
+  }
+}
+
+function triggerAccessAlarm() {
+  codeFailCount = 0;
+  alarmUntil = performance.now() + 2200;
+  if (alarmFlashEl) {
+    alarmFlashEl.hidden = false;
+    alarmFlashEl.style.animation = "none";
+    void alarmFlashEl.offsetWidth;
+    alarmFlashEl.style.animation = "";
+    setTimeout(() => {
+      if (alarmFlashEl) alarmFlashEl.hidden = true;
+    }, 2200);
+  }
+  sfxSiren();
+  hostEvent("alarm", "ошибка доступа · сирена");
+  showNote("ДОСТУП ОТКЛОНЁН", "Три неверных кода.\nСирена зафиксирована на табло эвента.\nПодсказки: журнал, телефон, архив на левой стене.");
+}
+
+function sfxCooler() {
+  ensureAudio();
+  if (!audioCtx || !sfxOut()) return;
+  const out = sfxOut();
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(180, now);
+  o.frequency.exponentialRampToValueAtTime(90, now + 0.35);
+  f.type = "lowpass";
+  f.frequency.value = 600;
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.07, now + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+  o.connect(f);
+  f.connect(g);
+  g.connect(out);
+  o.start(now);
+  o.stop(now + 0.42);
+}
+
+function sfxPhoneTone() {
+  ensureAudio();
+  if (!audioCtx || !sfxOut()) return;
+  const out = sfxOut();
+  const now = audioCtx.currentTime;
+  [440, 480].forEach((freq, i) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.045, now + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+    o.connect(g);
+    g.connect(out);
+    o.start(now + i * 0.02);
+    o.stop(now + 0.58);
+  });
 }
 
 async function hostPullState() {
@@ -417,6 +599,30 @@ const FOCUS = {
     target: new THREE.Vector3(-3.05, 1.2, 19.9),
     yawRange: 0.28,
     pitchRange: 0.18,
+  },
+  magazine: {
+    pos: new THREE.Vector3(-0.55, 1.35, 20.85),
+    target: new THREE.Vector3(-1.55, 0.55, 21.55),
+    yawRange: 0.3,
+    pitchRange: 0.22,
+  },
+  cooler: {
+    pos: new THREE.Vector3(-1.55, 1.45, 18.15),
+    target: new THREE.Vector3(-3.05, 1.05, 18.15),
+    yawRange: 0.28,
+    pitchRange: 0.16,
+  },
+  phone: {
+    pos: new THREE.Vector3(-1.55, 1.55, 19.55),
+    target: new THREE.Vector3(-2.95, 1.12, 19.55),
+    yawRange: 0.28,
+    pitchRange: 0.16,
+  },
+  guestPass: {
+    pos: new THREE.Vector3(-1.55, 1.55, 19.85),
+    target: new THREE.Vector3(-2.85, 1.05, 19.95),
+    yawRange: 0.28,
+    pitchRange: 0.16,
   },
   // пропуск на крючках — смотрим сбоку из комнаты, не вдоль ридера
   passHook: {
@@ -553,11 +759,13 @@ function updateSideNav() {
     }
   }
   if (navLeftBtn) {
-    // левая стена коридора — пока заглушка
     const showLeft = phase === "gate" && idle;
     navLeftBtn.hidden = !showLeft;
-    navLeftBtn.disabled = true;
-    navLeftBtn.setAttribute("aria-disabled", "true");
+    navLeftBtn.disabled = !showLeft;
+    navLeftBtn.textContent = "← Архив";
+    navLeftBtn.title = "Документы на левой стене";
+    if (showLeft) navLeftBtn.removeAttribute("aria-disabled");
+    else navLeftBtn.setAttribute("aria-disabled", "true");
   }
 }
 
@@ -841,6 +1049,7 @@ let peepholeLooking = false; // true только пока активен кру
 function setPeepholeView(on) {
   peepholeLooking = !!on;
   document.body.classList.toggle("peephole-view", !!on);
+  updatePeepholeStatus();
   const mask = document.getElementById("peephole-mask");
   if (mask) mask.hidden = !on;
   if (on) {
@@ -932,6 +1141,15 @@ function goToGateKeypad() {
   approachFocus("gateKeypad");
 }
 
+function goToGateArchive() {
+  if (phase !== "gate" || gateOpening) return;
+  if (camLerp) return;
+  if (focus === "gateLeft") return;
+  ensureAudio();
+  startMusic();
+  approachFocus("gateLeft");
+}
+
 function goToRadio() {
   if (phase !== "lobby" || focus || camLerp) return;
   ensureAudio();
@@ -953,7 +1171,7 @@ if (navLeftBtn) {
   navLeftBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // левая стена — позже
+    if (phase === "gate") goToGateArchive();
   });
   navLeftBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
 }
@@ -2691,6 +2909,12 @@ function addPlant(x, z, scale = 1) {
 addPlant(2.95, 22.15, 0.9);
 addPlant(-3.05, 22.2, 0.7);
 
+const magazineTargets = [];
+const coolerTargets = [];
+const phoneTargets = [];
+const guestPassTargets = [];
+const gateArchiveTargets = [];
+
 // столик у скамейки + журналы (между скамейкой и центром)
 {
   const table = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.35, 0.05, 20), woodMat);
@@ -2713,8 +2937,18 @@ addPlant(-3.05, 22.2, 0.7);
     mag.position.set(-1.55 + ox, 0.46 + i * 0.02, 21.55 + oz);
     mag.rotation.y = (i - 1) * 0.25;
     mag.castShadow = true;
+    mag.userData.kind = "magazine";
     lobbyRoot.add(mag);
+    magazineTargets.push(mag);
   });
+  const magHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.45, 0.2, 0.45),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  magHit.position.set(-1.55, 0.5, 21.55);
+  magHit.userData.kind = "magazine";
+  lobbyRoot.add(magHit);
+  magazineTargets.push(magHit);
 }
 
 // кресло — в проходе справа, не у шкафа
@@ -2853,7 +3087,9 @@ addFramedArt(3.38, 2.5, 18.4, -Math.PI / 2, artTexB, 0.72, 0.52);
   body.position.set(-3.05, 0.55, 18.15);
   body.castShadow = true;
   body.receiveShadow = true;
+  body.userData.kind = "cooler";
   lobbyRoot.add(body);
+  coolerTargets.push(body);
   const bottle = new THREE.Mesh(
     new THREE.CylinderGeometry(0.14, 0.14, 0.45, 16),
     new THREE.MeshStandardMaterial({
@@ -2866,7 +3102,17 @@ addFramedArt(3.38, 2.5, 18.4, -Math.PI / 2, artTexB, 0.72, 0.52);
   );
   bottle.position.set(-3.05, 1.35, 18.15);
   bottle.castShadow = true;
+  bottle.userData.kind = "cooler";
   lobbyRoot.add(bottle);
+  coolerTargets.push(bottle);
+  const coolHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 1.5, 0.55),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  coolHit.position.set(-3.05, 0.85, 18.15);
+  coolHit.userData.kind = "cooler";
+  lobbyRoot.add(coolHit);
+  coolerTargets.push(coolHit);
 }
 
 // длинный ковёр по центру холла
@@ -3034,6 +3280,87 @@ function onDeskLampTap() {
   cordHit.userData.kind = "deskLamp";
   lobbyRoot.add(cordHit);
   deskLampTargets.push(deskLampCord, deskLampCordKnob, cordHit);
+
+  // телефон на ресепшене — автоответчик с фрагментом кода
+  const phoneBase = new THREE.Mesh(
+    new THREE.BoxGeometry(0.22, 0.05, 0.16),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.4, roughness: 0.45 })
+  );
+  phoneBase.position.set(-2.75, 1.01, 19.7);
+  phoneBase.userData.kind = "phone";
+  lobbyRoot.add(phoneBase);
+  phoneTargets.push(phoneBase);
+  const handset = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.04, 0.14),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.35, roughness: 0.5 })
+  );
+  handset.position.set(-2.75, 1.06, 19.7);
+  handset.userData.kind = "phone";
+  lobbyRoot.add(handset);
+  phoneTargets.push(handset);
+  const phoneHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35, 0.25, 0.28),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  phoneHit.position.set(-2.75, 1.08, 19.7);
+  phoneHit.userData.kind = "phone";
+  lobbyRoot.add(phoneHit);
+  phoneTargets.push(phoneHit);
+
+  // чужой пропуск на столе (имя с табло / архив)
+  const gpCanvas = document.createElement("canvas");
+  gpCanvas.width = 256;
+  gpCanvas.height = 160;
+  const gpCtx = gpCanvas.getContext("2d");
+  function paintGuestPassCard(name) {
+    gpCtx.fillStyle = "#1a2230";
+    gpCtx.fillRect(0, 0, 256, 160);
+    gpCtx.strokeStyle = "#c9a86a";
+    gpCtx.lineWidth = 6;
+    gpCtx.strokeRect(8, 8, 240, 144);
+    gpCtx.fillStyle = "#c9a86a";
+    gpCtx.font = "700 18px sans-serif";
+    gpCtx.textAlign = "center";
+    gpCtx.fillText("ПРОПУСК · ГОСТЬ", 128, 48);
+    gpCtx.fillStyle = "#e8ecf2";
+    gpCtx.font = "700 22px sans-serif";
+    gpCtx.fillText(String(name || "АРХИВ").slice(0, 16), 128, 92);
+    gpCtx.fillStyle = "#6a7380";
+    gpCtx.font = "14px sans-serif";
+    gpCtx.fillText("не ваш · оставить на месте", 128, 128);
+  }
+  paintGuestPassCard("АРХИВ");
+  const gpTex = new THREE.CanvasTexture(gpCanvas);
+  gpTex.colorSpace = THREE.SRGBColorSpace;
+  window.__guestPassPaint = paintGuestPassCard;
+  window.__guestPassTex = gpTex;
+  const guestPass = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.28, 0.18),
+    new THREE.MeshBasicMaterial({ map: gpTex })
+  );
+  guestPass.position.set(-3.15, 1.005, 19.95);
+  guestPass.rotation.x = -Math.PI / 2;
+  guestPass.userData.kind = "guestPass";
+  lobbyRoot.add(guestPass);
+  guestPassTargets.push(guestPass);
+  const gpHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35, 0.08, 0.28),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  gpHit.position.set(-3.15, 1.02, 19.95);
+  gpHit.userData.kind = "guestPass";
+  lobbyRoot.add(gpHit);
+  guestPassTargets.push(gpHit);
+}
+
+function refreshGuestPassLabel() {
+  const paint = window.__guestPassPaint;
+  const tex = window.__guestPassTex;
+  if (!paint || !tex) return;
+  const others = eventPlayers.filter((p) => String(p.id) !== String(vkUser.id));
+  const name = others.length ? others[0].name : "АРХИВ";
+  paint(name);
+  tex.needsUpdate = true;
 }
 
 // настенные часы — правая стена, отдельно от картины
@@ -3747,6 +4074,18 @@ function drawPlayersBoard() {
     ctx.fillRect(w - 28, thumbY, 8, thumbH);
   }
 
+  // лента последних событий хоста
+  if (safeHostEvents.length) {
+    const ev = safeHostEvents[0];
+    ctx.fillStyle = "#12161c";
+    ctx.fillRect(16, h - 88, w - 32, 28);
+    ctx.fillStyle = "#c9a86a";
+    ctx.font = "13px sans-serif";
+    ctx.textAlign = "left";
+    const line = `${ev.name || "Игрок"}: ${ev.label || ev.type || ""}`.slice(0, 42);
+    ctx.fillText(line, 28, h - 68);
+  }
+
   // подвал
   ctx.fillStyle = "#161a22";
   ctx.fillRect(12, h - 48, w - 24, 36);
@@ -3812,7 +4151,12 @@ function drawTimerBoard() {
 
   ctx.fillStyle = "#5a6570";
   ctx.font = "13px sans-serif";
-  ctx.fillText(`до открытия · ${EVENT_UNLOCK_DAYS} дн.`, w / 2, h - 28);
+  ctx.fillText(`до открытия · ${EVENT_UNLOCK_DAYS} дн.`, w / 2, h - 48);
+  if (isEventAdmin()) {
+    ctx.fillStyle = "#c9a86a";
+    ctx.font = "700 14px sans-serif";
+    ctx.fillText("админ · тап = сброс таймера", w / 2, h - 22);
+  }
 
   timerTex.needsUpdate = true;
 }
@@ -4750,6 +5094,74 @@ const keypadTargets = [];
   }
 }
 
+/* —— архив на ЛЕВОЙ стене коридора (фрагмент кода) —— */
+const archiveRoot = new THREE.Group();
+archiveRoot.position.set(-3.22, 2.15, 3.0);
+archiveRoot.rotation.y = Math.PI / 2;
+gateRoot.add(archiveRoot);
+{
+  const cab = new THREE.Mesh(
+    new THREE.BoxGeometry(0.9, 1.35, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0x3a342c, metalness: 0.25, roughness: 0.55 })
+  );
+  cab.userData.kind = "gateArchive";
+  archiveRoot.add(cab);
+  gateArchiveTargets.push(cab);
+  const glass = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.72, 0.95),
+    new THREE.MeshStandardMaterial({
+      color: 0x88aacc,
+      transparent: true,
+      opacity: 0.18,
+      metalness: 0.1,
+      roughness: 0.2,
+    })
+  );
+  glass.position.z = 0.1;
+  glass.userData.kind = "gateArchive";
+  archiveRoot.add(glass);
+  gateArchiveTargets.push(glass);
+  const ac = document.createElement("canvas");
+  ac.width = 384;
+  ac.height = 512;
+  const ax = ac.getContext("2d");
+  ax.fillStyle = "#f3ead8";
+  ax.fillRect(0, 0, 384, 512);
+  ax.fillStyle = "#8a3030";
+  ax.font = "700 28px sans-serif";
+  ax.textAlign = "center";
+  ax.fillText("СЛУЖЕБНЫЙ АРХИВ", 192, 56);
+  ax.fillStyle = "#2a2418";
+  ax.font = "18px sans-serif";
+  ax.fillText("FUTURUM · gate access", 192, 96);
+  ax.font = "700 64px monospace";
+  ax.fillStyle = "#1a1a1a";
+  ax.fillText("13 _ _", 192, 220);
+  ax.font = "16px sans-serif";
+  ax.fillStyle = "#5a5040";
+  ax.fillText("фрагмент кода · лист 02", 192, 280);
+  ax.fillText("остальное — в холле", 192, 310);
+  ax.fillText("(журнал / автоответчик)", 192, 340);
+  const atex = new THREE.CanvasTexture(ac);
+  atex.colorSpace = THREE.SRGBColorSpace;
+  const paper = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.55, 0.72),
+    new THREE.MeshBasicMaterial({ map: atex })
+  );
+  paper.position.set(0, 0.05, 0.11);
+  paper.userData.kind = "gateArchive";
+  archiveRoot.add(paper);
+  gateArchiveTargets.push(paper);
+  const aHit = new THREE.Mesh(
+    new THREE.BoxGeometry(1.1, 1.5, 0.5),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  aHit.position.z = 0.15;
+  aHit.userData.kind = "gateArchive";
+  archiveRoot.add(aHit);
+  gateArchiveTargets.push(aHit);
+}
+
 const gateHit = new THREE.Mesh(
   new THREE.CircleGeometry(GATE_DOOR_R + 0.05, 32),
   new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
@@ -5254,10 +5666,28 @@ bank.position.y = 1.7;
 bank.castShadow = true;
 cellGroup.add(bank);
 
+/** роли ячеек: ключ / записка / чужие / пустые */
+const CELL_ROLES = [
+  { role: "key", color: 0xc9a86a, title: "Ключ", body: "Бирка на ключе: «…37».\nПохоже на конец кода доступа." },
+  { role: "empty", color: 0x6a6a6a, title: "Пусто", body: "Ячейка пуста." },
+  { role: "guest", color: 0x6a8cff, title: "Чужая", body: "" },
+  { role: "note", color: 0x7dba7d, title: "Записка", body: "«Первые цифры — 1 и 3.\nНе забыть порядок.»" },
+  { role: "guest", color: 0xff8844, title: "Чужая", body: "" },
+  { role: "empty", color: 0x5a5a5a, title: "Пусто", body: "Только пыль." },
+  { role: "guest", color: 0xa88cff, title: "Чужая", body: "" },
+  { role: "empty", color: 0x707070, title: "Пусто", body: "Пусто." },
+  { role: "empty", color: 0x4a4a4a, title: "Пусто", body: "Ничего." },
+  { role: "guest", color: 0x88c0a0, title: "Чужая", body: "" },
+  { role: "empty", color: 0x666666, title: "Пусто", body: "Пусто." },
+  { role: "empty", color: 0x555555, title: "Пусто", body: "Пусто." },
+];
+
 const COLS = 4;
 const ROWS = 3;
 for (let row = 0; row < ROWS; row++) {
   for (let col = 0; col < COLS; col++) {
+    const id = cells.length;
+    const def = CELL_ROLES[id] || { role: "empty", color: 0x666666, title: "Пусто", body: "Пусто." };
     const cell = new THREE.Group();
     const door = new THREE.Mesh(
       new THREE.BoxGeometry(1.05, 0.85, 0.08),
@@ -5265,25 +5695,43 @@ for (let row = 0; row < ROWS; row++) {
     );
     door.castShadow = true;
     door.userData.kind = "cell";
-    door.userData.cellId = cells.length;
+    door.userData.cellId = id;
     cell.add(door);
 
     const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 10), brass);
     knob.rotation.x = Math.PI / 2;
     knob.position.set(0.35, 0, 0.06);
     knob.userData.kind = "cell";
-    knob.userData.cellId = cells.length;
+    knob.userData.cellId = id;
     cell.add(knob);
 
     const numC = document.createElement("canvas");
     numC.width = 128;
     numC.height = 64;
     const nctx = numC.getContext("2d");
-    nctx.fillStyle = "#c9a86a";
-    nctx.font = "700 36px monospace";
-    nctx.textAlign = "center";
-    nctx.fillText(String(row * COLS + col + 1).padStart(2, "0"), 64, 42);
+    function paintCellLabel(ownerName) {
+      nctx.clearRect(0, 0, 128, 64);
+      nctx.fillStyle = "#c9a86a";
+      nctx.font = "700 28px monospace";
+      nctx.textAlign = "center";
+      nctx.fillText(String(id + 1).padStart(2, "0"), 64, 28);
+      if (ownerName) {
+        nctx.fillStyle = "#8ab4ff";
+        nctx.font = "700 14px sans-serif";
+        nctx.fillText(String(ownerName).slice(0, 8), 64, 52);
+      } else if (def.role === "key") {
+        nctx.fillStyle = "#e8d4a8";
+        nctx.font = "700 12px sans-serif";
+        nctx.fillText("КЛЮЧ", 64, 52);
+      } else if (def.role === "note") {
+        nctx.fillStyle = "#a8d8a8";
+        nctx.font = "700 12px sans-serif";
+        nctx.fillText("ЗАПИСЬ", 64, 52);
+      }
+    }
+    paintCellLabel(null);
     const ntex = new THREE.CanvasTexture(numC);
+    ntex.colorSpace = THREE.SRGBColorSpace;
     const label = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.18), new THREE.MeshBasicMaterial({ map: ntex }));
     label.position.set(-0.25, 0.25, 0.05);
     cell.add(label);
@@ -5291,7 +5739,7 @@ for (let row = 0; row < ROWS; row++) {
     const inside = new THREE.Mesh(
       new THREE.BoxGeometry(0.25, 0.15, 0.2),
       new THREE.MeshStandardMaterial({
-        color: [0xc9a86a, 0x7dba7d, 0x6a8cff, 0xff8844][(row * COLS + col) % 4],
+        color: def.color,
         emissive: 0x221100,
         emissiveIntensity: 0.35,
         metalness: 0.6,
@@ -5303,9 +5751,41 @@ for (let row = 0; row < ROWS; row++) {
 
     cell.position.set((col - 1.5) * 1.2, 0.7 + row * 0.95, 0.3);
     cellGroup.add(cell);
-    cells.push({ group: cell, door, inside, open: false, openT: 0, opening: false });
+    cells.push({
+      group: cell,
+      door,
+      inside,
+      labelTex: ntex,
+      paintLabel: paintCellLabel,
+      role: def.role,
+      title: def.title,
+      body: def.body,
+      ownerName: "",
+      open: false,
+      openT: 0,
+      opening: false,
+      revealed: false,
+    });
   }
 }
+
+function assignCellOwners() {
+  if (!cells.length) return;
+  const others = eventPlayers.filter((p) => String(p.id) !== String(vkUser.id));
+  let gi = 0;
+  cells.forEach((c) => {
+    if (c.role !== "guest") return;
+    const p = others[gi % Math.max(1, others.length)];
+    c.ownerName = others.length ? p.name || "Игрок" : "АРХИВ";
+    c.body = `Ячейка закреплена за:\n${c.ownerName}\nНе ваша — лучше закрыть.`;
+    c.paintLabel(c.ownerName);
+    c.labelTex.needsUpdate = true;
+    gi++;
+  });
+  refreshGuestPassLabel();
+}
+
+assignCellOwners();
 
 /* —— interaction —— */
 const raycaster = new THREE.Raycaster();
@@ -5450,14 +5930,19 @@ function submitCode() {
   }
   const ok = GATE_CODE.every((v, i) => v === entered[i]);
   if (ok) {
+    codeFailCount = 0;
     drawBoard("ok");
     setGateLed(true);
     sfxUnlock();
     openGate();
   } else {
+    codeFailCount += 1;
     drawBoard("bad");
     setGateLed(false);
     sfxRattle();
+    if (codeFailCount >= 3) {
+      setTimeout(() => triggerAccessAlarm(), 200);
+    }
     setTimeout(() => {
       entered = [];
       setGateLed(null);
@@ -5549,6 +6034,105 @@ function tryCell(id) {
   setTimeout(() => sfxClack(140, 0.05), 120);
 }
 
+function onCellOpened(c) {
+  if (!c || c.revealed) return;
+  c.revealed = true;
+  if (c.role === "key") foundCodeHints.cellKey = true;
+  if (c.role === "note") foundCodeHints.cellNote = true;
+  const title = c.title || "Ячейка";
+  let body = c.body || "";
+  if (c.role === "guest" && c.ownerName) {
+    body = `Ячейка закреплена за:\n${c.ownerName}\nНе ваша — лучше закрыть.`;
+  }
+  showNote(title, body);
+  hostEvent("cell", `${title}${c.ownerName ? " · " + c.ownerName : ""}`);
+}
+
+function onMagazineTap() {
+  if (phase !== "lobby") return;
+  if (focus !== "magazine") {
+    approachFocus("magazine");
+    return;
+  }
+  foundCodeHints.mag = true;
+  sfxClack(220, 0.04);
+  showNote(
+    "Журнал · закладка",
+    "Между страницами записка:\n«Код ворот начинается с 1 3…\nОстальное — в архиве / на телефоне.»"
+  );
+}
+
+function onCoolerTap() {
+  if (phase !== "lobby") return;
+  if (focus !== "cooler") {
+    approachFocus("cooler");
+    return;
+  }
+  sfxCooler();
+  showNote("Кулер", "Бульк.\nВода холодная. Больше ничего интересного.");
+}
+
+function onPhoneTap() {
+  if (phase !== "lobby") return;
+  if (focus !== "phone") {
+    approachFocus("phone");
+    return;
+  }
+  foundCodeHints.phone = true;
+  sfxPhoneTone();
+  showNote(
+    "Автоответчик",
+    "«…напоминание охране:\nпоследние две цифры кода — 3 и 7.\nКонец сообщения.»"
+  );
+}
+
+function onGuestPassTap() {
+  if (phase !== "lobby") return;
+  if (focus !== "guestPass") {
+    approachFocus("guestPass");
+    return;
+  }
+  refreshGuestPassLabel();
+  const others = eventPlayers.filter((p) => String(p.id) !== String(vkUser.id));
+  const name = others.length ? others[0].name : "АРХИВ";
+  sfxClack(200, 0.04);
+  showNote("Чужой пропуск", `На столе чужая карта:\n${name}\nЕё нельзя забрать — только посмотреть.`);
+}
+
+function onGateArchiveTap() {
+  if (phase !== "gate" || gateOpening) return;
+  if (focus !== "gateLeft") {
+    goToGateArchive();
+    return;
+  }
+  foundCodeHints.dossier = true;
+  sfxClack(180, 0.05);
+  showNote(
+    "Служебный архив",
+    "Лист 02 / gate access:\n\n13 _ _\n\nПервые две цифры кода.\nДополните по подсказкам из холла."
+  );
+}
+
+async function onTimerBoardTap() {
+  if (phase !== "lobby") return;
+  if (focus !== "timerBoard") {
+    approachFocus("timerBoard");
+    return;
+  }
+  if (!isEventAdmin()) {
+    showNote("Таймер эвента", "Общий отсчёт до открытия двери.\nСинхронизируется с хостом.");
+    return;
+  }
+  const ok = await hostResetTimer();
+  if (ok) {
+    sfxUnlock();
+    showNote("Таймер сброшен", `Админ-сброс выполнен.\nСнова ${EVENT_UNLOCK_DAYS} дн. для всех игроков.`);
+    drawTimerBoard();
+  } else {
+    showNote("Сброс не удался", "Хост недоступен.\nПроверь туннель и host.json.");
+  }
+}
+
 const safeTargets = [safeHandleHit, safeArm, safeBall, safeDoor, safeBody];
 const cellTargets = cells.flatMap((c) => [c.door, ...c.group.children]);
 const gateBodyTargets = [gateHit, gateDisc, gateFace];
@@ -5577,7 +6161,23 @@ function onTap(e) {
       return;
     }
     if (hits(e, timerBoardTargets).length) {
-      if (focus !== "timerBoard") approachFocus("timerBoard");
+      onTimerBoardTap();
+      return;
+    }
+    if (magazineTargets.length && hits(e, magazineTargets).length) {
+      onMagazineTap();
+      return;
+    }
+    if (coolerTargets.length && hits(e, coolerTargets).length) {
+      onCoolerTap();
+      return;
+    }
+    if (phoneTargets.length && hits(e, phoneTargets).length) {
+      onPhoneTap();
+      return;
+    }
+    if (guestPassTargets.length && hits(e, guestPassTargets).length) {
+      onGuestPassTap();
       return;
     }
     const rh = hits(e, radioTargets);
@@ -5646,6 +6246,10 @@ function onTap(e) {
   }
 
   if (phase === "gate") {
+    if (gateArchiveTargets.length && hits(e, gateArchiveTargets).length) {
+      onGateArchiveTap();
+      return;
+    }
     const b = hits(e, keypadTargets);
     if (b.length) {
       if (focus !== "gateKeypad") {
@@ -6424,8 +7028,15 @@ function loop() {
     safeDoorPivot.rotation.y = -2.0 * e;
     if (safeOpenT >= 1) {
       safeOpening = false;
-      if (!safeOpen) hostEvent("safe");
+      const first = !safeOpen;
+      if (first) hostEvent("safe");
       safeOpen = true;
+      if (first) {
+        sfxUnlock();
+        setTimeout(() => {
+          showFinale(vkUser.name || "Игрок", new Date().toLocaleString("ru-RU"));
+        }, 600);
+      }
     }
   }
 
@@ -6440,6 +7051,7 @@ function loop() {
         c.opening = false;
         c.open = true;
         c.inside.visible = true;
+        onCellOpened(c);
       }
     }
   });
@@ -6447,6 +7059,7 @@ function loop() {
   // глазок: превью на линзе / крупный круглый обзор
   try {
     if (peepholeLooking && focus === "peephole" && phase === "lobby" && !lobbyDoorOpen) {
+      updatePeepholeStatus();
       syncPeepholeCam();
       const snap = beginPeepholeScene();
       renderer.render(scene, peepholeCam);
