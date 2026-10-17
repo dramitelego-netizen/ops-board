@@ -96,28 +96,46 @@
 
           document.title = "FUTURUM · Хранилище";
           document.documentElement.style.height = "100%";
+          document.body.classList.add("checkin-lock");
           document.body.style.cssText =
-            "margin:0;width:100%;height:100%;overflow:hidden;background:#e8ebe8";
+            "margin:0;width:100%;height:100%;overflow:hidden;background:#0c1016";
 
           var css = document.createElement("link");
           css.rel = "stylesheet";
-          css.href = "./safe.css?v=46";
+          css.href = "./safe.css?v=47";
           document.head.appendChild(css);
 
           root.hidden = false;
           root.innerHTML =
             '<canvas id="c"></canvas>' +
+            '<div id="checkin" class="checkin" role="dialog" aria-modal="true">' +
+            '<div class="checkin-bg" aria-hidden="true"></div>' +
+            '<div class="checkin-panel">' +
+            '<div class="checkin-scan" aria-hidden="true"></div>' +
+            '<p class="checkin-kicker">CHECKPOINT 01 · CLEARANCE</p>' +
+            '<h1 class="checkin-brand">FUTURUM</h1>' +
+            '<p class="checkin-sub">Перед входом укажите позывной.<br />Он будет на пропуске и на табло.</p>' +
+            '<label class="checkin-label" for="checkin-name">Позывной</label>' +
+            '<input id="checkin-name" class="checkin-input" type="text" maxlength="18" autocomplete="nickname" placeholder="например · NOVA" spellcheck="false" />' +
+            '<div class="checkin-pass-wrap"><canvas id="checkin-pass" width="420" height="260"></canvas></div>' +
+            '<button type="button" id="checkin-go" class="checkin-go" disabled>Выдать пропуск</button>' +
+            '<p class="checkin-hint">После выдачи вы попадёте в холл</p>' +
+            "</div></div>" +
             '<button type="button" id="room-back" class="room-back" hidden>← Назад</button>' +
             '<button type="button" id="step-back" class="step-back" hidden>Отойти</button>' +
-            '<button type="button" id="nav-left" class="side-nav side-nav-left" hidden disabled title="Скоро">←</button>' +
+            '<button type="button" id="nav-left" class="side-nav side-nav-left" hidden title="Архив">← Архив</button>' +
             '<button type="button" id="nav-right" class="side-nav side-nav-right" hidden>→ Код</button>' +
-            '<div id="peephole-mask" class="peephole-mask" hidden aria-hidden="true"></div>';
+            '<div id="peephole-mask" class="peephole-mask" hidden></div>' +
+            '<div id="peephole-status" class="peephole-status" hidden></div>' +
+            '<div id="alarm-flash" class="alarm-flash" hidden></div>' +
+            '<div id="note-overlay" class="note-overlay" hidden><div class="note-card"><div id="note-title" class="note-title"></div><div id="note-body" class="note-body"></div><button type="button" id="note-close" class="note-close">Закрыть</button></div></div>' +
+            '<div id="finale-overlay" class="finale-overlay" hidden><div class="finale-card"><div class="finale-brand">FUTURUM</div><div id="finale-title" class="finale-title">Эвент пройден</div><div id="finale-body" class="finale-body"></div><button type="button" id="finale-close" class="note-close">Продолжить</button></div></div>';
 
           markSafeUrl();
 
           var mod = document.createElement("script");
           mod.type = "module";
-          mod.src = "./safe.js?v=105";
+          mod.src = "./safe.js?v=106";
           document.body.appendChild(mod);
         }
 

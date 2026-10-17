@@ -6,10 +6,16 @@ body {
   height: 100dvh;
   overflow: hidden;
   background: #e8ebe8;
-  /* убирает «резину» и зум жестами в VK WebView */
   touch-action: none;
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+}
+
+body.checkin-lock #c,
+body.checkin-lock .room-back,
+body.checkin-lock .step-back,
+body.checkin-lock .side-nav {
+  pointer-events: none !important;
 }
 
 #c {
@@ -302,4 +308,193 @@ body.peephole-view #c {
 .finale-card .note-close {
   background: #c9a86a;
   color: #1a140c;
+}
+
+/* —— КПП: выдача пропуска перед игрой —— */
+.checkin {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  touch-action: manipulation;
+}
+
+.checkin[hidden] {
+  display: none !important;
+}
+
+.checkin-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 15%, rgba(201, 168, 106, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 80% 90%, rgba(40, 70, 90, 0.35), transparent 50%),
+    linear-gradient(165deg, #0c1016 0%, #161b24 45%, #0a0d12 100%);
+}
+
+.checkin-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.06) 2px,
+    rgba(255, 255, 255, 0.06) 3px
+  );
+  pointer-events: none;
+}
+
+.checkin-panel {
+  position: relative;
+  width: min(92vw, 420px);
+  padding: 28px 24px 22px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(28, 34, 44, 0.96), rgba(14, 17, 24, 0.98));
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  animation: checkinIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes checkinIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.checkin-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #c9a86a, transparent);
+  opacity: 0.55;
+  animation: checkinScan 3.2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes checkinScan {
+  0% {
+    top: 8%;
+  }
+  100% {
+    top: 92%;
+  }
+}
+
+.checkin-kicker {
+  margin: 0 0 8px;
+  font: 600 11px/1.2 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c9a86a;
+}
+
+.checkin-brand {
+  margin: 0 0 10px;
+  font: 700 42px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  color: #f0e6d4;
+}
+
+.checkin-sub {
+  margin: 0 0 20px;
+  font: 400 14px/1.45 "Segoe UI", system-ui, sans-serif;
+  color: #8a93a0;
+}
+
+.checkin-label {
+  display: block;
+  margin-bottom: 8px;
+  font: 600 12px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6a7380;
+}
+
+.checkin-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  background: rgba(8, 10, 14, 0.85);
+  color: #e8ecf2;
+  font: 700 20px/1.2 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  outline: none;
+  touch-action: manipulation;
+}
+
+.checkin-input::placeholder {
+  color: #4a5562;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.checkin-input:focus {
+  border-color: #c9a86a;
+  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.2);
+}
+
+.checkin-pass-wrap {
+  margin: 18px 0 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0a0d12;
+}
+
+#checkin-pass {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.checkin-go {
+  width: 100%;
+  padding: 15px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #dfc07a, #c9a86a);
+  color: #1a140c;
+  font: 700 15px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.checkin-go:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.checkin-go:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.checkin-hint {
+  margin: 12px 0 0;
+  text-align: center;
+  font: 400 12px/1.3 "Segoe UI", system-ui, sans-serif;
+  color: #5a6570;
+}
+
+.checkin.is-stamping .checkin-go {
+  pointer-events: none;
+  opacity: 0.7;
 }

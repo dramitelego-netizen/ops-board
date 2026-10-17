@@ -149,7 +149,11 @@ let ledBlinkT = 0;
 let handleTugT = -1; // дёрганье без доступа
 let handlePullT = -1; // потяг перед открытием
 let lobbyDoorShake = 0;
+/** игрок (раньше VK) — ник с экрана КПП */
 let vkUser = { name: "Гость", photo: "", id: "0" };
+let playerReady = false;
+const PLAYER_NAME_KEY = "futurum_callsign";
+const PLAYER_ID_KEY = "futurum_pid";
 
 /** эвент: дверь закрыта, пока не выйдет таймер (потом карта) */
 const EVENT_UNLOCK_DAYS = 12;
@@ -1191,6 +1195,34 @@ const passCtx = passCanvas.getContext("2d");
 const passTex = new THREE.CanvasTexture(passCanvas);
 passTex.colorSpace = THREE.SRGBColorSpace;
 
+function playerInitials(name) {
+  const parts = String(name || "G")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "·";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function drawPassMonogram(ctx, ax, ay, as, name) {
+  const grd = ctx.createLinearGradient(ax, ay, ax + as, ay + as);
+  grd.addColorStop(0, "#2a3544");
+  grd.addColorStop(1, "#121820");
+  ctx.fillStyle = grd;
+  ctx.fillRect(ax + 4, ay + 4, as - 8, as - 8);
+  ctx.strokeStyle = "#c9a86a";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(ax + 10, ay + 10, as - 20, as - 20);
+  ctx.fillStyle = "#c9a86a";
+  ctx.font = "700 52px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(playerInitials(name), ax + as / 2, ay + as / 2 + 2);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
 function drawPassCard(user, photoImg) {
   const ctx = passCtx;
   const w = passCanvas.width;
@@ -1225,13 +1257,7 @@ function drawPassCard(user, photoImg) {
     ctx.drawImage(photoImg, ax + 4, ay + 4, as - 8, as - 8);
     ctx.restore();
   } else {
-    ctx.fillStyle = "#3a4452";
-    ctx.fillRect(ax + 4, ay + 4, as - 8, as - 8);
-    ctx.fillStyle = "#8a93a0";
-    ctx.font = "700 48px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("?", ax + as / 2, ay + as / 2 + 16);
-    ctx.textAlign = "left";
+    drawPassMonogram(ctx, ax, ay, as, user?.name);
   }
 
   ctx.fillStyle = "#e8ecf2";
@@ -1240,7 +1266,7 @@ function drawPassCard(user, photoImg) {
   ctx.fillText(name, 190, 130);
   ctx.fillStyle = "#8a93a0";
   ctx.font = "16px sans-serif";
-  ctx.fillText("ID  " + (user?.id || "—"), 190, 165);
+  ctx.fillText("CALL  " + (user?.id || "—").toString().slice(0, 12), 190, 165);
   ctx.fillText("STATUS  ACTIVE", 190, 195);
   ctx.fillStyle = "#c9a86a";
   ctx.font = "13px sans-serif";
@@ -1396,43 +1422,154 @@ function eventSecondsLeft() {
   return Math.max(0, left);
 }
 
-async function loadVkUser() {
+function normalizeCallsign(raw) {
+  return String(raw || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 18);
+}
+
+function ensurePlayerId() {
   try {
-    const b = window.vkBridge;
-    if (b?.send) {
-      const info = await b.send("VKWebAppGetUserInfo");
-      const first = info?.first_name || "";
-      const last = info?.last_name || "";
-      vkUser = {
-        name: `${first} ${last}`.trim() || "Пользователь VK",
-        photo: info?.photo_200 || info?.photo_100 || "",
-        id: String(info?.id || "0"),
-      };
-    }
+    let id = localStorage.getItem(PLAYER_ID_KEY);
+    if (id && id !== "0") return id;
+    id = "p" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
+    localStorage.setItem(PLAYER_ID_KEY, id);
+    return id;
   } catch {
-    /* вне VK */
-  }
-  await registerEventPlayer(vkUser);
-  if (!vkUser.photo) {
-    drawPassCard(vkUser, null);
-    return;
-  }
-  try {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = vkUser.photo;
-    });
-    passPhotoImg = img;
-    drawPassCard(vkUser, passPhotoImg);
-    drawPlayersBoard();
-  } catch {
-    drawPassCard(vkUser, null);
+    return "p" + Date.now().toString(36);
   }
 }
-loadVkUser();
+
+function paintCheckinPassPreview(name) {
+  const c = document.getElementById("checkin-pass");
+  if (!c) return;
+  const ctx = c.getContext("2d");
+  const w = c.width;
+  const h = c.height;
+  const label = normalizeCallsign(name) || "ПОЗЫВНОЙ";
+  ctx.clearRect(0, 0, w, h);
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, "#2a3140");
+  g.addColorStop(1, "#12161e");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "#c9a86a";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(10, 10, w - 20, h - 20);
+  ctx.fillStyle = "#c9a86a";
+  ctx.font = "700 20px sans-serif";
+  ctx.fillText("FUTURUM  ·  ACCESS", 28, 44);
+  ctx.fillStyle = "#6a7380";
+  ctx.font = "12px sans-serif";
+  ctx.fillText("AUTHORIZED PERSONNEL", 28, 66);
+  drawPassMonogram(ctx, 28, 88, 120, label);
+  ctx.fillStyle = "#e8ecf2";
+  ctx.font = "700 26px sans-serif";
+  ctx.fillText(label.toUpperCase().slice(0, 16), 170, 130);
+  ctx.fillStyle = "#8a93a0";
+  ctx.font = "15px sans-serif";
+  ctx.fillText("CALLSIGN CLEARANCE", 170, 162);
+  ctx.fillStyle = "#c9a86a";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(normalizeCallsign(name) ? "READY TO ISSUE" : "ENTER CALLSIGN", 170, 200);
+}
+
+async function enterGameAsPlayer(name) {
+  const callsign = normalizeCallsign(name);
+  if (callsign.length < 2) return false;
+  const id = ensurePlayerId();
+  try {
+    localStorage.setItem(PLAYER_NAME_KEY, callsign);
+  } catch {
+    /* ignore */
+  }
+  vkUser = { name: callsign, photo: "", id };
+  passPhotoImg = null;
+  playerReady = true;
+  drawPassCard(vkUser, null);
+  await registerEventPlayer(vkUser);
+  drawPlayersBoard();
+  assignCellOwners();
+  return true;
+}
+
+function finishCheckinUI() {
+  const gate = document.getElementById("checkin");
+  if (gate) {
+    gate.classList.add("is-stamping");
+    setTimeout(() => {
+      gate.hidden = true;
+      document.body.classList.remove("checkin-lock");
+    }, 280);
+  } else {
+    document.body.classList.remove("checkin-lock");
+  }
+  try {
+    sfxUnlock();
+  } catch {
+    /* audio may be locked */
+  }
+}
+
+function setupCheckin() {
+  const gate = document.getElementById("checkin");
+  const input = document.getElementById("checkin-name");
+  const go = document.getElementById("checkin-go");
+  if (!gate || !input || !go) {
+    // нет UI — сразу гость локально
+    enterGameAsPlayer("Гость");
+    document.body.classList.remove("checkin-lock");
+    return;
+  }
+
+  let saved = "";
+  try {
+    saved = localStorage.getItem(PLAYER_NAME_KEY) || "";
+  } catch {
+    saved = "";
+  }
+  if (saved) input.value = saved;
+  paintCheckinPassPreview(input.value);
+  go.disabled = normalizeCallsign(input.value).length < 2;
+
+  const sync = () => {
+    const v = normalizeCallsign(input.value);
+    input.value = input.value.slice(0, 18);
+    paintCheckinPassPreview(input.value);
+    go.disabled = v.length < 2;
+  };
+  input.addEventListener("input", sync);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !go.disabled) {
+      e.preventDefault();
+      go.click();
+    }
+  });
+
+  go.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (go.disabled || playerReady) return;
+    go.disabled = true;
+    const ok = await enterGameAsPlayer(input.value);
+    if (!ok) {
+      go.disabled = false;
+      return;
+    }
+    finishCheckinUI();
+  });
+
+  // фокус после короткой паузы (мобильные клавиатуры)
+  setTimeout(() => {
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus?.();
+    }
+  }, 350);
+}
+
+setupCheckin();
 
 function showPassCard() {
   if (!passTaken || passScanning || passScanDeny || passTakeT >= 0) return;
@@ -6140,6 +6277,7 @@ const gateBodyTargets = [gateHit, gateDisc, gateFace];
 let ptrDown = null;
 
 function onTap(e) {
+  if (!playerReady) return;
   if (
     camLerp ||
     lobbyOpening ||
