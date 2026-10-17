@@ -102,7 +102,7 @@
 
           var css = document.createElement("link");
           css.rel = "stylesheet";
-          css.href = "./safe.css?v=47";
+          css.href = "./safe.css?v=48";
           document.head.appendChild(css);
 
           root.hidden = false;
@@ -119,8 +119,10 @@
             '<input id="checkin-name" class="checkin-input" type="text" maxlength="18" autocomplete="nickname" placeholder="например · NOVA" spellcheck="false" />' +
             '<div class="checkin-pass-wrap"><canvas id="checkin-pass" width="420" height="260"></canvas></div>' +
             '<button type="button" id="checkin-go" class="checkin-go" disabled>Выдать пропуск</button>' +
-            '<p class="checkin-hint">После выдачи вы попадёте в холл</p>' +
+            '<p class="checkin-hint">После выдачи — коридор комнат</p>' +
             "</div></div>" +
+            '<div id="intro-letter" class="intro-letter" hidden><div class="intro-letter-dim"></div><div class="intro-envelope" id="intro-envelope"><div class="intro-flap"></div><div class="intro-sheet" id="intro-sheet"><p class="intro-sheet-seal">FUTURUM · PRIVATE</p><h2 class="intro-sheet-title">Приглашение</h2><p class="intro-sheet-body" id="intro-sheet-body"></p><button type="button" id="intro-letter-close" class="intro-letter-close">Сложить письмо</button></div></div></div>' +
+            '<div id="intro-key-hud" class="intro-key-hud" hidden><div class="intro-key-visual"></div><div class="intro-key-meta"><span class="intro-key-label">Ваш ключ</span><span class="intro-key-room">КОМН. <b id="intro-key-no">—</b></span></div></div>' +
             '<button type="button" id="room-back" class="room-back" hidden>← Назад</button>' +
             '<button type="button" id="step-back" class="step-back" hidden>Отойти</button>' +
             '<button type="button" id="nav-left" class="side-nav side-nav-left" hidden title="Архив">← Архив</button>' +
@@ -135,7 +137,7 @@
 
           var mod = document.createElement("script");
           mod.type = "module";
-          mod.src = "./safe.js?v=106";
+          mod.src = "./safe.js?v=107";
           document.body.appendChild(mod);
         }
 

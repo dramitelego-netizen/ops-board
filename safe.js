@@ -105,7 +105,18 @@ function enableLowMode(reason) {
   applyPerfGraphics();
 }
 
-let phase = "lobby"; // lobby → gate → vault
+let phase = "intro"; // intro → lobby → gate → vault
+let introDone = false;
+let introHasKey = false;
+let introLetterOpen = false;
+let assignedRoomNo = 0;
+let introWalkZ = 0;
+const INTRO_Z_MIN = -11.5;
+const INTRO_Z_MAX = 1.2;
+const INTRO_ROOM_COUNT = 12;
+const introDoors = []; // { no, side, mesh, pivot, targets, open, openT }
+let introRoot = null;
+let introDoorUnlocking = null;
 let focus = null; // null = центр комнаты; иначе у объекта
 let entered = [];
 let gateOpening = false;
@@ -527,6 +538,13 @@ function startHostSync() {
 
 /** стоять в центре / подойти ближе — фронтальный взгляд */
 const ROOMS = {
+  intro: {
+    // длинный коридор комнат — смотрим вдоль −Z, широко влево/вправо
+    stand: new THREE.Vector3(0, 1.55, 0.6),
+    look: new THREE.Vector3(0, 1.45, -6),
+    yawRange: 1.45,
+    pitchRange: 0.22,
+  },
   lobby: {
     stand: new THREE.Vector3(0, 1.62, 21.0),
     look: new THREE.Vector3(0, 1.55, 16.55),
@@ -723,8 +741,8 @@ let lookLastX = 0;
 let lookLastY = 0;
 let boardScrolling = false;
 let camMode = "stand"; // stand | focus
-let camAnchor = ROOMS.lobby.stand.clone();
-let camLookAt = new THREE.Vector3(0, 1.55, 16.55);
+let camAnchor = ROOMS.intro.stand.clone();
+let camLookAt = new THREE.Vector3(0, 1.45, -6);
 let yawLimit = { min: -0.95, max: 0.95 };
 let pitchLimit = { min: -0.35, max: 0.4 };
 
@@ -743,7 +761,14 @@ function setStepBackVisible(on) {
 function updateSideNav() {
   const idle = !focus && !camLerp && !lobbyOpening && !lobbyClosing && !gateOpening;
   if (navRightBtn) {
-    if (phase === "lobby" && idle) {
+    if (phase === "intro" && idle && introHasKey) {
+      navRightBtn.hidden = false;
+      navRightBtn.disabled = false;
+      navRightBtn.textContent = "Вперёд →";
+      navRightBtn.title = "Идти по коридору";
+      navRightBtn.classList.remove("side-nav-radio");
+      navRightBtn.removeAttribute("aria-disabled");
+    } else if (phase === "lobby" && idle) {
       navRightBtn.hidden = false;
       navRightBtn.disabled = false;
       navRightBtn.textContent = "→ Радио";
@@ -763,13 +788,21 @@ function updateSideNav() {
     }
   }
   if (navLeftBtn) {
-    const showLeft = phase === "gate" && idle;
-    navLeftBtn.hidden = !showLeft;
-    navLeftBtn.disabled = !showLeft;
-    navLeftBtn.textContent = "← Архив";
-    navLeftBtn.title = "Документы на левой стене";
-    if (showLeft) navLeftBtn.removeAttribute("aria-disabled");
-    else navLeftBtn.setAttribute("aria-disabled", "true");
+    if (phase === "intro" && idle && introHasKey) {
+      navLeftBtn.hidden = false;
+      navLeftBtn.disabled = false;
+      navLeftBtn.textContent = "← Назад";
+      navLeftBtn.title = "Назад по коридору";
+      navLeftBtn.removeAttribute("aria-disabled");
+    } else {
+      const showLeft = phase === "gate" && idle;
+      navLeftBtn.hidden = !showLeft;
+      navLeftBtn.disabled = !showLeft;
+      navLeftBtn.textContent = "← Архив";
+      navLeftBtn.title = "Документы на левой стене";
+      if (showLeft) navLeftBtn.removeAttribute("aria-disabled");
+      else navLeftBtn.setAttribute("aria-disabled", "true");
+    }
   }
 }
 
@@ -958,6 +991,25 @@ function applyRoomMood(roomKey) {
       fillWarm.intensity = 4.5;
     }
     if (fillCool) fillCool.intensity = 3.2;
+  } else if (roomKey === "intro") {
+    scene.background = new THREE.Color(0x12151a);
+    scene.fog = new THREE.FogExp2(0x101318, 0.055);
+    if (ambientLight) {
+      ambientLight.color.setHex(0xc8d0d8);
+      ambientLight.intensity = 0.22;
+    }
+    if (hemi) {
+      hemi.color.setHex(0xd8e0e8);
+      hemi.groundColor.setHex(0x1a1814);
+      hemi.intensity = 0.28;
+    }
+    if (keyLight) {
+      keyLight.color.setHex(0xffe8c8);
+      keyLight.intensity = 0.15;
+    }
+    if (spot) spot.intensity = 0;
+    if (fillWarm) fillWarm.intensity = 0.05;
+    if (fillCool) fillCool.intensity = 0.2;
   } else if (roomKey === "gate") {
     // почти чёрный коридор, пока люминесцентные не зажглись
     const lit = hallLightOn && !hallLightAnim ? 1 : hallLightOn ? 0.55 : 0;
@@ -1007,11 +1059,18 @@ function applyRoomMood(roomKey) {
 
 function snapToStand(roomKey) {
   const r = ROOMS[roomKey];
+  if (!r) return;
   focus = null;
   camMode = "stand";
-  camAnchor.copy(r.stand);
-  camLookAt.copy(r.look);
-  faceToward(camAnchor, r.look);
+  if (roomKey === "intro") {
+    const z = introWalkZ || r.stand.z;
+    camAnchor.set(r.stand.x, r.stand.y, z);
+    camLookAt.set(0, 1.45, z - 6);
+  } else {
+    camAnchor.copy(r.stand);
+    camLookAt.copy(r.look);
+  }
+  faceToward(camAnchor, camLookAt);
   setLookLimitsAround(lookYaw, r.yawRange, lookPitch, r.pitchRange);
   applyLook();
   applyRoomMood(roomKey);
@@ -1076,6 +1135,11 @@ function setPeepholeView(on) {
 function approachFocus(id) {
   const pose = resolveFocusPose(id);
   if (!pose || camLerp) return;
+  if (phase === "intro" && String(id).startsWith("introDoor")) {
+    const no = Number(String(id).replace("introDoor", ""));
+    const door = introDoors.find((x) => x.no === no);
+    if (door) introWalkZ = door.z;
+  }
   ensureAudio();
   startMusic();
   sfxClack(190, 0.04);
@@ -1162,11 +1226,20 @@ function goToRadio() {
   updateSideNav();
 }
 
+function introWalk(delta) {
+  if (phase !== "intro" || !introHasKey || camLerp || focus) return;
+  introWalkZ = Math.max(INTRO_Z_MIN, Math.min(INTRO_Z_MAX, introWalkZ + delta));
+  camAnchor.z = introWalkZ;
+  applyLook();
+  sfxClack(160, 0.02);
+}
+
 if (navRightBtn) {
   navRightBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (phase === "lobby") goToRadio();
+    if (phase === "intro") introWalk(-2.2);
+    else if (phase === "lobby") goToRadio();
     else if (phase === "gate") goToGateKeypad();
   });
   navRightBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -1175,7 +1248,8 @@ if (navLeftBtn) {
   navLeftBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (phase === "gate") goToGateArchive();
+    if (phase === "intro") introWalk(2.2);
+    else if (phase === "gate") goToGateArchive();
   });
   navLeftBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
 }
@@ -1501,14 +1575,126 @@ function finishCheckinUI() {
     setTimeout(() => {
       gate.hidden = true;
       document.body.classList.remove("checkin-lock");
+      beginIntroSequence();
     }, 280);
   } else {
     document.body.classList.remove("checkin-lock");
+    beginIntroSequence();
   }
   try {
     sfxUnlock();
   } catch {
     /* audio may be locked */
+  }
+}
+
+function pickAssignedRoom() {
+  try {
+    const k = "futurum_intro_room_" + String(vkUser.id || "x");
+    let n = parseInt(localStorage.getItem(k), 10);
+    if (n >= 1 && n <= INTRO_ROOM_COUNT) return n;
+    n = 1 + Math.floor(Math.random() * INTRO_ROOM_COUNT);
+    localStorage.setItem(k, String(n));
+    return n;
+  } catch {
+    return 1 + Math.floor(Math.random() * INTRO_ROOM_COUNT);
+  }
+}
+
+function invitationLetterText(roomNo, name) {
+  return (
+    `Уважаем${/[аяь]$/i.test(name) ? "ая" : "ый"} ${name},\n\n` +
+    `Вас приглашают на закрытый эвент FUTURUM.\n` +
+    `В конверте — ключ от вашей комнаты.\n\n` +
+    `Комната № ${String(roomNo).padStart(2, "0")}.\n` +
+    `Найдите дверь с этим номером в коридоре,\n` +
+    `откройте ключом и войдите.\n\n` +
+    `— Служба допуска FUTURUM`
+  );
+}
+
+function showIntroLetter() {
+  const wrap = document.getElementById("intro-letter");
+  const env = document.getElementById("intro-envelope");
+  const body = document.getElementById("intro-sheet-body");
+  if (!wrap) return;
+  assignedRoomNo = pickAssignedRoom();
+  if (body) body.textContent = invitationLetterText(assignedRoomNo, vkUser.name || "агент");
+  wrap.hidden = false;
+  introLetterOpen = true;
+  if (env) {
+    env.classList.remove("is-open");
+    requestAnimationFrame(() => {
+      setTimeout(() => env.classList.add("is-open"), 180);
+    });
+  }
+  softNoise?.(0.06, 0.02, 400, 1.2);
+}
+
+function hideIntroLetterAndGiveKey() {
+  const wrap = document.getElementById("intro-letter");
+  const env = document.getElementById("intro-envelope");
+  if (env) env.classList.remove("is-open");
+  introLetterOpen = false;
+  setTimeout(() => {
+    if (wrap) wrap.hidden = true;
+    introHasKey = true;
+    const hud = document.getElementById("intro-key-hud");
+    const no = document.getElementById("intro-key-no");
+    if (no) no.textContent = String(assignedRoomNo).padStart(2, "0");
+    if (hud) hud.hidden = false;
+    sfxClack(280, 0.06);
+    setTimeout(() => sfxClack(190, 0.05), 90);
+    updateSideNav();
+    showNote(
+      "Ключ у вас",
+      `Комната № ${String(assignedRoomNo).padStart(2, "0")}.\nСмотрите по сторонам, идите вдоль коридора и откройте свою дверь.`
+    );
+  }, 280);
+}
+
+function beginIntroSequence() {
+  if (introDone) {
+    enterLobbyFromIntro(true);
+    return;
+  }
+  phase = "intro";
+  if (typeof introRoot !== "undefined" && introRoot) introRoot.visible = true;
+  if (typeof lobbyRoot !== "undefined" && lobbyRoot) lobbyRoot.visible = false;
+  introWalkZ = ROOMS.intro.stand.z;
+  camAnchor.copy(ROOMS.intro.stand);
+  snapToStand("intro");
+  setTimeout(() => showIntroLetter(), 500);
+}
+
+function enterLobbyFromIntro(skipAnim = false) {
+  introDone = true;
+  introHasKey = false;
+  const hud = document.getElementById("intro-key-hud");
+  if (hud) hud.hidden = true;
+  if (typeof introRoot !== "undefined" && introRoot) introRoot.visible = false;
+  if (typeof lobbyRoot !== "undefined" && lobbyRoot) lobbyRoot.visible = true;
+  phase = "lobby";
+  hidePassCard?.();
+  if (skipAnim) {
+    snapToStand("lobby");
+  } else {
+    startCamLerp(ROOMS.lobby.stand, ROOMS.lobby.look, () => {
+      snapToStand("lobby");
+    }, 0.012);
+  }
+  updateRoomBackBtn();
+}
+
+{
+  const closeBtn = document.getElementById("intro-letter-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!introLetterOpen) return;
+      hideIntroLetterAndGiveKey();
+    });
   }
 }
 
@@ -1656,7 +1842,7 @@ fillCool = new THREE.PointLight(0xffe0c0, 0.15, 12, 2);
 fillCool.position.set(2.5, 3.0, 18.5);
 scene.add(fillCool);
 
-snapToStand("lobby");
+snapToStand("intro");
 updateRoomBackBtn();
 
 /* —— audio: мягкие ASMR-звуки —— */
@@ -2548,6 +2734,183 @@ function drawBoard(flash = null) {
 /* ===================== LOBBY — входная дверь ===================== */
 const lobbyRoot = new THREE.Group();
 scene.add(lobbyRoot);
+lobbyRoot.visible = false; // сначала комната 0 (коридор)
+
+/* —— КОМНАТА 0: длинный коридор с дверями —— */
+introRoot = new THREE.Group();
+scene.add(introRoot);
+{
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.85, metalness: 0.08 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.9 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color: 0x222830, roughness: 0.92 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.08, 28), floorMat);
+  floor.position.set(0, -0.04, -6);
+  floor.receiveShadow = true;
+  introRoot.add(floor);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.08, 28), ceilMat);
+  ceil.position.set(0, 3.15, -6);
+  introRoot.add(ceil);
+  [-1, 1].forEach((side) => {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.2, 28), wallMat);
+    w.position.set(side * 2.55, 1.55, -6);
+    w.receiveShadow = true;
+    introRoot.add(w);
+  });
+  // конец коридора
+  const end = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.2, 0.2), wallMat);
+  end.position.set(0, 1.55, -19.5);
+  introRoot.add(end);
+  // редкие лампы
+  for (let i = 0; i < 5; i++) {
+    const z = -1 - i * 3.5;
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.06, 0.9),
+      new THREE.MeshStandardMaterial({
+        color: 0xd8e0e8,
+        emissive: 0xa8b8c8,
+        emissiveIntensity: 0.85,
+      })
+    );
+    lamp.position.set(0, 3.0, z);
+    introRoot.add(lamp);
+    const pl = new THREE.PointLight(0xd0dce8, perfLow ? 1.2 : 2.2, 7, 2);
+    pl.position.set(0, 2.7, z);
+    introRoot.add(pl);
+  }
+  // табличка
+  {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 128;
+    const cx = c.getContext("2d");
+    cx.fillStyle = "#1a1a1a";
+    cx.fillRect(0, 0, 512, 128);
+    cx.fillStyle = "#c9a86a";
+    cx.font = "700 36px sans-serif";
+    cx.textAlign = "center";
+    cx.fillText("ЖИЛОЙ КОРПУС · FUTURUM", 256, 78);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 0.55),
+      new THREE.MeshBasicMaterial({ map: tex })
+    );
+    sign.position.set(0, 2.55, -0.2);
+    introRoot.add(sign);
+  }
+
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a342c, metalness: 0.25, roughness: 0.55 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1814, metalness: 0.4, roughness: 0.5 });
+
+  function makeIntroDoor(no, side, z) {
+    const root = new THREE.Group();
+    root.position.set(side * 2.35, 0, z);
+    root.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    introRoot.add(root);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.35, 0.12), frameMat);
+    frame.position.y = 1.15;
+    root.add(frame);
+    const pivot = new THREE.Group();
+    pivot.position.set(-0.48, 0, 0.02);
+    root.add(pivot);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.15, 0.07), doorMat);
+    door.position.set(0.48, 1.1, 0);
+    door.castShadow = true;
+    door.userData.kind = "introDoor";
+    door.userData.roomNo = no;
+    pivot.add(door);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), brass);
+    knob.position.set(0.82, 1.05, 0.06);
+    knob.userData.kind = "introDoor";
+    knob.userData.roomNo = no;
+    pivot.add(knob);
+    const numC = document.createElement("canvas");
+    numC.width = 128;
+    numC.height = 128;
+    const nctx = numC.getContext("2d");
+    nctx.fillStyle = "#c9a86a";
+    nctx.font = "700 54px monospace";
+    nctx.textAlign = "center";
+    nctx.textBaseline = "middle";
+    nctx.fillText(String(no).padStart(2, "0"), 64, 64);
+    const ntex = new THREE.CanvasTexture(numC);
+    ntex.colorSpace = THREE.SRGBColorSpace;
+    const label = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.28, 0.28),
+      new THREE.MeshBasicMaterial({ map: ntex })
+    );
+    label.position.set(0.48, 1.75, 0.05);
+    label.userData.kind = "introDoor";
+    label.userData.roomNo = no;
+    pivot.add(label);
+    const hit = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 2.4, 0.5),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    hit.position.set(0.48, 1.15, 0.1);
+    hit.userData.kind = "introDoor";
+    hit.userData.roomNo = no;
+    root.add(hit);
+    const entry = {
+      no,
+      side,
+      z,
+      root,
+      pivot,
+      door,
+      targets: [door, knob, label, hit],
+      open: false,
+      openT: 0,
+      opening: false,
+    };
+    introDoors.push(entry);
+    // FOCUS для подхода
+    FOCUS["introDoor" + no] = {
+      pos: new THREE.Vector3(side * 0.85, 1.5, z),
+      target: new THREE.Vector3(side * 2.2, 1.35, z),
+      yawRange: 0.35,
+      pitchRange: 0.18,
+    };
+  }
+
+  // 6 дверей слева (1–6), 6 справа (7–12)
+  for (let i = 0; i < 6; i++) {
+    const z = -1.5 - i * 2.4;
+    makeIntroDoor(i + 1, -1, z);
+    makeIntroDoor(i + 7, 1, z);
+  }
+}
+
+function tryIntroDoor(roomNo) {
+  if (phase !== "intro" || introLetterOpen || introDoorUnlocking) return;
+  if (!introHasKey) {
+    showNote("Сначала письмо", "Достаньте приглашение из конверта — внутри будет ключ.");
+    return;
+  }
+  const focusId = "introDoor" + roomNo;
+  if (focus !== focusId) {
+    approachFocus(focusId);
+    return;
+  }
+  const d = introDoors.find((x) => x.no === roomNo);
+  if (!d || d.open || d.opening) return;
+  ensureAudio();
+  if (roomNo !== assignedRoomNo) {
+    sfxRattle();
+    sfxBeep(180, 0.06);
+    showNote(
+      "Не та дверь",
+      `Ключ от комнаты № ${String(assignedRoomNo).padStart(2, "0")}.\nЭта — № ${String(roomNo).padStart(2, "0")}.`
+    );
+    return;
+  }
+  d.opening = true;
+  d.openT = 0;
+  introDoorUnlocking = d;
+  sfxUnlock();
+  setTimeout(() => sfxDoor(), 200);
+  showNote("Открыто", `Комната № ${String(roomNo).padStart(2, "0")}.\nВходите…`);
+}
 
 const lobbyWallMat = new THREE.MeshStandardMaterial({
   map: lobbyWallTex,
@@ -6278,6 +6641,7 @@ let ptrDown = null;
 
 function onTap(e) {
   if (!playerReady) return;
+  if (introLetterOpen) return;
   if (
     camLerp ||
     lobbyOpening ||
@@ -6287,11 +6651,23 @@ function onTap(e) {
     passTakeT >= 0 ||
     passInspectT >= 0 ||
     passPocketT >= 0 ||
-    readerNoCardT >= 0
+    readerNoCardT >= 0 ||
+    introDoorUnlocking
   )
     return;
   ensureAudio();
   startMusic();
+
+  if (phase === "intro") {
+    for (const d of introDoors) {
+      if (hits(e, d.targets).length) {
+        tryIntroDoor(d.no);
+        return;
+      }
+    }
+    if (focus) returnToRoom();
+    return;
+  }
 
   if (phase === "lobby") {
     if (hits(e, playersBoardTargets).length) {
@@ -7150,6 +7526,20 @@ function loop() {
     }
   } else if (!lookDragging) {
     camera.position.copy(camAnchor);
+  }
+
+  // комната 0 — открытие своей двери ключом
+  if (introDoorUnlocking) {
+    const d = introDoorUnlocking;
+    d.openT = Math.min(1, d.openT + 0.022);
+    const e = 1 - Math.pow(1 - d.openT, 2.4);
+    d.pivot.rotation.y = -e * 1.55;
+    if (d.openT >= 1) {
+      d.opening = false;
+      d.open = true;
+      introDoorUnlocking = null;
+      setTimeout(() => enterLobbyFromIntro(false), 450);
+    }
   }
 
   // сейф
