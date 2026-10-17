@@ -1295,22 +1295,174 @@ function playerInitials(name) {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
+function hashCallsign(name) {
+  const s = String(name || "FUTURUM").toUpperCase();
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+const AGENT_CLASSES = [
+  "OBSERVER",
+  "CIPHER",
+  "VAULTWALK",
+  "NIGHTOWL",
+  "SIGNAL",
+  "ARCHIVIST",
+  "PHANTOM",
+  "KEYMASTER",
+];
+
+function agentClassFor(name) {
+  return AGENT_CLASSES[hashCallsign(name) % AGENT_CLASSES.length];
+}
+
+/** процедурная эмблема агента — «аватар» на пропуске */
+function drawAgentAvatar(ctx, ax, ay, as, name) {
+  const h = hashCallsign(name || "?");
+  const style = h % 6;
+  const cx = ax + as / 2;
+  const cy = ay + as / 2;
+  const r = as * 0.42;
+  const gold = "#c9a86a";
+  const ink = "#0e1218";
+  const accents = ["#66e0ff", "#ff7a5c", "#a8e08a", "#e0b0ff", "#ffd36a", "#7ab8ff"];
+  const accent = accents[h % accents.length];
+
+  const bg = ctx.createLinearGradient(ax, ay, ax + as, ay + as);
+  bg.addColorStop(0, "#1a2230");
+  bg.addColorStop(1, "#0a0e14");
+  ctx.fillStyle = bg;
+  ctx.fillRect(ax, ay, as, as);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ax, ay, as, as);
+  ctx.clip();
+
+  // сетка / шум
+  ctx.strokeStyle = "rgba(201,168,106,0.12)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const p = ax + ((i + 1) / 7) * as;
+    ctx.beginPath();
+    ctx.moveTo(p, ay);
+    ctx.lineTo(p, ay + as);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ax, p);
+    ctx.lineTo(ax + as, p);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = Math.max(2, as * 0.035);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = accent;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, as * 0.03);
+
+  if (style === 0) {
+    // глаз
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r * 0.55, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (style === 1) {
+    // гекс
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + Math.cos(a) * r * 0.45;
+      const y = cy + Math.sin(a) * r * 0.45;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fillStyle = gold;
+    ctx.font = `700 ${Math.floor(as * 0.22)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(playerInitials(name), cx, cy + 1);
+  } else if (style === 2) {
+    // ключ / зубцы
+    ctx.fillStyle = gold;
+    ctx.fillRect(cx - r * 0.08, cy - r * 0.35, r * 0.16, r * 0.7);
+    ctx.beginPath();
+    ctx.arc(cx, cy - r * 0.35, r * 0.22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillRect(cx + r * 0.08, cy + r * 0.15, r * 0.22, r * 0.1);
+    ctx.fillRect(cx + r * 0.08, cy + r * 0.32, r * 0.14, r * 0.1);
+  } else if (style === 3) {
+    // сигнал
+    for (let i = 1; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.15, cy, r * 0.18 * i, -Math.PI * 0.55, Math.PI * 0.55);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.15, cy, r * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (style === 4) {
+    // звезда / компас
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+      const rr = i % 2 === 0 ? r * 0.5 : r * 0.22;
+      const x = cx + Math.cos(a) * rr;
+      const y = cy + Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fillStyle = gold;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // портал / кольца
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.28, 0.2, Math.PI * 1.6);
+    ctx.stroke();
+    ctx.fillStyle = gold;
+    ctx.font = `700 ${Math.floor(as * 0.2)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(playerInitials(name), cx, cy + 1);
+  }
+
+  ctx.restore();
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ax + 2, ay + 2, as - 4, as - 4);
+}
+
 function drawPassMonogram(ctx, ax, ay, as, name) {
-  const grd = ctx.createLinearGradient(ax, ay, ax + as, ay + as);
-  grd.addColorStop(0, "#2a3544");
-  grd.addColorStop(1, "#121820");
-  ctx.fillStyle = grd;
-  ctx.fillRect(ax + 4, ay + 4, as - 8, as - 8);
-  ctx.strokeStyle = "#c9a86a";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(ax + 10, ay + 10, as - 20, as - 20);
-  ctx.fillStyle = "#c9a86a";
-  ctx.font = "700 52px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(playerInitials(name), ax + as / 2, ay + as / 2 + 2);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
+  drawAgentAvatar(ctx, ax + 4, ay + 4, as - 8, name);
+}
+
+function paintCheckinAvatar(name) {
+  const c = document.getElementById("checkin-avatar");
+  if (!c) return;
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, c.width, c.height);
+  drawAgentAvatar(ctx, 0, 0, c.width, normalizeCallsign(name) || "??");
 }
 
 function drawPassCard(user, photoImg) {
@@ -1538,6 +1690,7 @@ function paintCheckinPassPreview(name) {
   const w = c.width;
   const h = c.height;
   const label = normalizeCallsign(name) || "ПОЗЫВНОЙ";
+  const ready = normalizeCallsign(name).length >= 2;
   ctx.clearRect(0, 0, w, h);
   const g = ctx.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, "#2a3140");
@@ -1552,17 +1705,20 @@ function paintCheckinPassPreview(name) {
   ctx.fillText("FUTURUM  ·  ACCESS", 28, 44);
   ctx.fillStyle = "#6a7380";
   ctx.font = "12px sans-serif";
-  ctx.fillText("AUTHORIZED PERSONNEL", 28, 66);
-  drawPassMonogram(ctx, 28, 88, 120, label);
+  ctx.fillText("IDENTITY FORGE · AGENT SEAL", 28, 66);
+  drawAgentAvatar(ctx, 32, 92, 112, label);
   ctx.fillStyle = "#e8ecf2";
   ctx.font = "700 26px sans-serif";
-  ctx.fillText(label.toUpperCase().slice(0, 16), 170, 130);
+  ctx.fillText(label.toUpperCase().slice(0, 14), 168, 128);
   ctx.fillStyle = "#8a93a0";
-  ctx.font = "15px sans-serif";
-  ctx.fillText("CALLSIGN CLEARANCE", 170, 162);
+  ctx.font = "14px sans-serif";
+  ctx.fillText("CLASS  " + agentClassFor(label), 168, 158);
   ctx.fillStyle = "#c9a86a";
   ctx.font = "13px sans-serif";
-  ctx.fillText(normalizeCallsign(name) ? "READY TO ISSUE" : "ENTER CALLSIGN", 170, 200);
+  ctx.fillText(ready ? "SEAL LOCKED · READY" : "AWAITING CALLSIGN", 168, 198);
+  paintCheckinAvatar(label);
+  const cls = document.getElementById("checkin-class");
+  if (cls) cls.textContent = ready ? `CLASS · ${agentClassFor(label)}` : "CLASS · —";
 }
 
 async function enterGameAsPlayer(name) {
@@ -1773,12 +1929,43 @@ function enterLobbyFromIntro(skipAnim = false) {
   }
 }
 
+function runCheckinBootLine() {
+  const el = document.getElementById("checkin-boot");
+  if (!el) return;
+  const lines = [
+    "SYS · LINKING CLEARANCE NODE…",
+    "SCAN · FORGING AGENT SEAL…",
+    "WAIT · ENTER CALLSIGN TO BIND…",
+    "OK · IDENTITY FORGE ONLINE",
+  ];
+  let i = 0;
+  const tick = () => {
+    if (!document.getElementById("checkin") || document.getElementById("checkin").hidden) return;
+    el.textContent = lines[i % lines.length];
+    i++;
+    if (i < lines.length) setTimeout(tick, 700);
+    else {
+      // редкий глитч строки
+      setInterval(() => {
+        if (document.getElementById("checkin")?.hidden) return;
+        if (Math.random() > 0.82) {
+          const prev = el.textContent;
+          el.textContent = "ERR · █▓░ SIGNAL NOISE ░▓█";
+          setTimeout(() => {
+            if (el) el.textContent = prev || lines[3];
+          }, 180);
+        }
+      }, 3200);
+    }
+  };
+  tick();
+}
+
 function setupCheckin() {
   const gate = document.getElementById("checkin");
   const input = document.getElementById("checkin-name");
   const go = document.getElementById("checkin-go");
   if (!gate || !input || !go) {
-    // нет UI — сразу гость локально
     enterGameAsPlayer("Гость");
     document.body.classList.remove("checkin-lock");
     return;
@@ -1793,12 +1980,21 @@ function setupCheckin() {
   if (saved) input.value = saved;
   paintCheckinPassPreview(input.value);
   go.disabled = normalizeCallsign(input.value).length < 2;
+  runCheckinBootLine();
 
   const sync = () => {
     const v = normalizeCallsign(input.value);
     input.value = input.value.slice(0, 18);
     paintCheckinPassPreview(input.value);
     go.disabled = v.length < 2;
+    // лёгкий shake бренда при вводе
+    const brand = document.getElementById("checkin-brand");
+    if (brand && v) {
+      brand.style.transform = `translateX(${(Math.random() - 0.5) * 3}px)`;
+      setTimeout(() => {
+        if (brand) brand.style.transform = "";
+      }, 80);
+    }
   };
   input.addEventListener("input", sync);
   input.addEventListener("keydown", (e) => {
@@ -1812,6 +2008,8 @@ function setupCheckin() {
     e.preventDefault();
     if (go.disabled || playerReady) return;
     go.disabled = true;
+    const boot = document.getElementById("checkin-boot");
+    if (boot) boot.textContent = "SEAL · ENGRAVING PASS…";
     const ok = await enterGameAsPlayer(input.value);
     if (!ok) {
       go.disabled = false;
@@ -1820,7 +2018,6 @@ function setupCheckin() {
     finishCheckinUI();
   });
 
-  // фокус после короткой паузы (мобильные клавиатуры)
   setTimeout(() => {
     try {
       input.focus({ preventScroll: true });
@@ -4619,15 +4816,12 @@ function drawPlayersBoard() {
       ctx.drawImage(img, 42, cy - 26, 52, 52);
       ctx.restore();
     } else {
-      ctx.fillStyle = "#3a4452";
+      ctx.save();
       ctx.beginPath();
       ctx.arc(68, cy, 26, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#c9a86a";
-      ctx.font = "700 20px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText((p.name || "?")[0].toUpperCase(), 68, cy + 7);
-      ctx.textAlign = "left";
+      ctx.clip();
+      drawAgentAvatar(ctx, 42, cy - 26, 52, p.name || "?");
+      ctx.restore();
       if (p.photo && !playerPhotoCache.has("load:" + p.id)) {
         playerPhotoCache.set("load:" + p.id, true);
         const im = new Image();
@@ -7627,7 +7821,7 @@ function loop() {
       d.opening = false;
       d.open = true;
       introDoorUnlocking = null;
-      setTimeout(() => enterLobbyFromIntro(false), 450);
+      setTimeout(() => enterLobbyFromIntro(false), 280);
     }
   }
 

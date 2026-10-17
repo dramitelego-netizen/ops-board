@@ -310,7 +310,7 @@ body.peephole-view #c {
   color: #1a140c;
 }
 
-/* —— КПП: выдача пропуска перед игрой —— */
+/* —— КПП / IDENTITY FORGE —— */
 .checkin {
   position: fixed;
   inset: 0;
@@ -328,47 +328,91 @@ body.peephole-view #c {
 .checkin-bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 80% 55% at 50% 15%, rgba(201, 168, 106, 0.18), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 80% 90%, rgba(40, 70, 90, 0.35), transparent 50%),
-    linear-gradient(165deg, #0c1016 0%, #161b24 45%, #0a0d12 100%);
+  overflow: hidden;
+  background: linear-gradient(165deg, #07090e 0%, #121820 42%, #0a0c10 100%);
 }
 
-.checkin-bg::after {
-  content: "";
+.checkin-grid {
   position: absolute;
-  inset: 0;
-  opacity: 0.07;
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.06) 2px,
-    rgba(255, 255, 255, 0.06) 3px
-  );
-  pointer-events: none;
+  inset: -20%;
+  background-image:
+    linear-gradient(rgba(201, 168, 106, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 168, 106, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  transform: perspective(500px) rotateX(58deg);
+  transform-origin: 50% 0%;
+  animation: checkinGrid 18s linear infinite;
+  opacity: 0.55;
+}
+
+@keyframes checkinGrid {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 42px;
+  }
+}
+
+.checkin-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.45;
+  animation: checkinOrb 9s ease-in-out infinite alternate;
+}
+
+.checkin-orb-a {
+  width: 280px;
+  height: 280px;
+  left: -40px;
+  top: 10%;
+  background: rgba(201, 168, 106, 0.35);
+}
+
+.checkin-orb-b {
+  width: 220px;
+  height: 220px;
+  right: -30px;
+  bottom: 12%;
+  background: rgba(60, 120, 160, 0.35);
+  animation-delay: -3s;
+}
+
+@keyframes checkinOrb {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(18px, -22px) scale(1.12);
+  }
 }
 
 .checkin-panel {
   position: relative;
-  width: min(92vw, 420px);
-  padding: 28px 24px 22px;
-  border-radius: 18px;
-  background: linear-gradient(160deg, rgba(28, 34, 44, 0.96), rgba(14, 17, 24, 0.98));
-  border: 1px solid rgba(201, 168, 106, 0.35);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  width: min(92vw, 440px);
+  padding: 22px 22px 20px;
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(36, 42, 54, 0.92), rgba(12, 14, 20, 0.96));
+  border: 1px solid rgba(201, 168, 106, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 28px 70px rgba(0, 0, 0, 0.6);
   overflow: hidden;
-  animation: checkinIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: checkinIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes checkinIn {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.97);
+    transform: translateY(28px) scale(0.94);
+    filter: blur(6px);
   }
   to {
     opacity: 1;
     transform: none;
+    filter: none;
   }
 }
 
@@ -376,48 +420,213 @@ body.peephole-view #c {
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #c9a86a, transparent);
-  opacity: 0.55;
-  animation: checkinScan 3.2s linear infinite;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #c9a86a, #fff4cc, #c9a86a, transparent);
+  opacity: 0.65;
+  animation: checkinScan 2.8s linear infinite;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 @keyframes checkinScan {
   0% {
-    top: 8%;
+    top: 0%;
   }
   100% {
-    top: 92%;
+    top: 100%;
+  }
+}
+
+.checkin-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  min-height: 18px;
+}
+
+.checkin-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #44ff88;
+  box-shadow: 0 0 10px #44ff88;
+  animation: checkinLed 1.4s ease-in-out infinite;
+}
+
+@keyframes checkinLed {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.checkin-boot {
+  font: 500 11px/1.2 ui-monospace, "Cascadia Code", Consolas, monospace;
+  letter-spacing: 0.04em;
+  color: #7a8898;
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 2px solid #c9a86a;
+  animation: checkinType 0.05s steps(1) both, checkinCaret 0.8s step-end infinite;
+  max-width: 100%;
+}
+
+@keyframes checkinCaret {
+  50% {
+    border-color: transparent;
   }
 }
 
 .checkin-kicker {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font: 600 11px/1.2 "Segoe UI", system-ui, sans-serif;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #c9a86a;
 }
 
-.checkin-brand {
+.glitch-mini {
+  position: relative;
+  display: inline-block;
+}
+
+.checkin-brand.glitch {
+  position: relative;
   margin: 0 0 10px;
-  font: 700 42px/1 "Segoe UI", system-ui, sans-serif;
-  letter-spacing: 0.14em;
-  color: #f0e6d4;
+  font: 800 46px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  color: #f4ebd8;
+  text-shadow: 0 0 24px rgba(201, 168, 106, 0.25);
+  animation: brandPulse 3.5s ease-in-out infinite;
+}
+
+.checkin-brand.glitch::before,
+.checkin-brand.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0.85;
+}
+
+.checkin-brand.glitch::before {
+  color: #66e0ff;
+  z-index: -1;
+  animation: glitchA 2.8s infinite linear alternate-reverse;
+  clip-path: polygon(0 0, 100% 0, 100% 38%, 0 38%);
+}
+
+.checkin-brand.glitch::after {
+  color: #ff5a7a;
+  z-index: -2;
+  animation: glitchB 2.1s infinite linear alternate-reverse;
+  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+}
+
+@keyframes glitchA {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-3px, 1px);
+  }
+  40% {
+    transform: translate(3px, -1px);
+  }
+  60% {
+    transform: translate(-2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+@keyframes glitchB {
+  0% {
+    transform: translate(0);
+  }
+  25% {
+    transform: translate(3px, 0);
+  }
+  50% {
+    transform: translate(-3px, 1px);
+  }
+  75% {
+    transform: translate(2px, -1px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+@keyframes brandPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.08);
+  }
 }
 
 .checkin-sub {
-  margin: 0 0 20px;
+  margin: 0 0 18px;
   font: 400 14px/1.45 "Segoe UI", system-ui, sans-serif;
   color: #8a93a0;
+}
+
+.checkin-id-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.checkin-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  border: 1px solid rgba(201, 168, 106, 0.45);
+  background: #0a0d12;
+  box-shadow:
+    0 0 0 4px rgba(201, 168, 106, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+  animation: avatarIdle 4s ease-in-out infinite;
+}
+
+@keyframes avatarIdle {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(201, 168, 106, 0.08),
+      0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(201, 168, 106, 0.18),
+      0 10px 28px rgba(201, 168, 106, 0.12);
+  }
+}
+
+.checkin-id-fields {
+  min-width: 0;
 }
 
 .checkin-label {
   display: block;
   margin-bottom: 8px;
-  font: 600 12px/1 "Segoe UI", system-ui, sans-serif;
-  letter-spacing: 0.12em;
+  font: 600 11px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #6a7380;
 }
@@ -425,16 +634,17 @@ body.peephole-view #c {
 .checkin-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 14px 16px;
+  padding: 13px 14px;
   border-radius: 12px;
   border: 1px solid rgba(201, 168, 106, 0.35);
-  background: rgba(8, 10, 14, 0.85);
+  background: rgba(8, 10, 14, 0.88);
   color: #e8ecf2;
-  font: 700 20px/1.2 "Segoe UI", system-ui, sans-serif;
-  letter-spacing: 0.06em;
+  font: 700 18px/1.2 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   outline: none;
   touch-action: manipulation;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .checkin-input::placeholder {
@@ -446,41 +656,114 @@ body.peephole-view #c {
 
 .checkin-input:focus {
   border-color: #c9a86a;
-  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.2);
+  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.22), 0 0 24px rgba(201, 168, 106, 0.12);
+}
+
+.checkin-class {
+  margin: 8px 0 0;
+  font: 600 11px/1.2 ui-monospace, Consolas, monospace;
+  letter-spacing: 0.1em;
+  color: #c9a86a;
+  min-height: 1.2em;
+  animation: classFlicker 5s steps(1) infinite;
+}
+
+@keyframes classFlicker {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.4;
+  }
+  96% {
+    opacity: 1;
+  }
 }
 
 .checkin-pass-wrap {
-  margin: 18px 0 16px;
-  border-radius: 12px;
+  position: relative;
+  margin: 0 0 16px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   background: #0a0d12;
+  transform: perspective(800px) rotateX(4deg);
+  transition: transform 0.35s ease;
+}
+
+.checkin-panel:focus-within .checkin-pass-wrap {
+  transform: perspective(800px) rotateX(0deg) scale(1.01);
+}
+
+.checkin-pass-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.14) 48%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  animation: passShine 4.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes passShine {
+  0%,
+  55% {
+    transform: translateX(-120%);
+  }
+  75%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 #checkin-pass {
   display: block;
   width: 100%;
   height: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .checkin-go {
+  position: relative;
   width: 100%;
   padding: 15px 18px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, #dfc07a, #c9a86a);
+  background: linear-gradient(180deg, #e8c878, #c9a86a 55%, #b08e52);
   color: #1a140c;
-  font: 700 15px/1 "Segoe UI", system-ui, sans-serif;
-  letter-spacing: 0.06em;
+  font: 800 14px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  overflow: hidden;
+  transition: transform 0.15s ease, opacity 0.15s ease, filter 0.2s ease;
+}
+
+.checkin-go-glow {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.checkin-go:not(:disabled):hover .checkin-go-glow {
+  opacity: 1;
 }
 
 .checkin-go:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: default;
+  filter: grayscale(0.3);
 }
 
 .checkin-go:not(:disabled):active {
@@ -491,12 +774,18 @@ body.peephole-view #c {
   margin: 12px 0 0;
   text-align: center;
   font: 400 12px/1.3 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.08em;
   color: #5a6570;
 }
 
 .checkin.is-stamping .checkin-go {
   pointer-events: none;
   opacity: 0.7;
+}
+
+.checkin.is-stamping .checkin-brand.glitch::before,
+.checkin.is-stamping .checkin-brand.glitch::after {
+  animation-duration: 0.15s;
 }
 
 /* —— комната 0: физический конверт —— */

@@ -8,32 +8,56 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>FUTURUM · Хранилище</title>
-    <link rel="stylesheet" href="./safe.css?v=49" />
+    <link rel="stylesheet" href="./safe.css?v=50" />
   </head>
   <body class="checkin-lock">
     <canvas id="c"></canvas>
     <div id="checkin" class="checkin" role="dialog" aria-modal="true" aria-labelledby="checkin-brand">
-      <div class="checkin-bg" aria-hidden="true"></div>
+      <div class="checkin-bg" aria-hidden="true">
+        <div class="checkin-grid"></div>
+        <div class="checkin-orb checkin-orb-a"></div>
+        <div class="checkin-orb checkin-orb-b"></div>
+      </div>
       <div class="checkin-panel">
         <div class="checkin-scan" aria-hidden="true"></div>
-        <p class="checkin-kicker">CHECKPOINT 01 · CLEARANCE</p>
-        <h1 id="checkin-brand" class="checkin-brand">FUTURUM</h1>
-        <p class="checkin-sub">Перед входом в хранилище укажите позывной.<br />Он будет на пропуске и на табло эвента.</p>
-        <label class="checkin-label" for="checkin-name">Позывной</label>
-        <input
-          id="checkin-name"
-          class="checkin-input"
-          type="text"
-          maxlength="18"
-          autocomplete="nickname"
-          placeholder="например · NOVA"
-          spellcheck="false"
-        />
+        <div class="checkin-chrome">
+          <span class="checkin-led"></span>
+          <span id="checkin-boot" class="checkin-boot">SYS · BOOTING CLEARANCE NODE…</span>
+        </div>
+        <p class="checkin-kicker">
+          <span class="glitch-mini" data-text="CHECKPOINT 01">CHECKPOINT 01</span>
+          · IDENTITY FORGE
+        </p>
+        <h1 id="checkin-brand" class="checkin-brand glitch" data-text="FUTURUM">FUTURUM</h1>
+        <p class="checkin-sub">
+          Создайте позывной агента.<br />
+          Эмблема и пропуск соберутся сами.
+        </p>
+        <div class="checkin-id-row">
+          <canvas id="checkin-avatar" class="checkin-avatar" width="112" height="112" aria-hidden="true"></canvas>
+          <div class="checkin-id-fields">
+            <label class="checkin-label" for="checkin-name">Позывной</label>
+            <input
+              id="checkin-name"
+              class="checkin-input"
+              type="text"
+              maxlength="18"
+              autocomplete="nickname"
+              placeholder="введите · CALLSIGN"
+              spellcheck="false"
+            />
+            <p id="checkin-class" class="checkin-class">CLASS · —</p>
+          </div>
+        </div>
         <div class="checkin-pass-wrap">
+          <div class="checkin-pass-shine" aria-hidden="true"></div>
           <canvas id="checkin-pass" width="420" height="260" aria-hidden="true"></canvas>
         </div>
-        <button type="button" id="checkin-go" class="checkin-go" disabled>Выдать пропуск</button>
-        <p class="checkin-hint">После выдачи — коридор комнат</p>
+        <button type="button" id="checkin-go" class="checkin-go" disabled>
+          <span class="checkin-go-glow" aria-hidden="true"></span>
+          Выковать пропуск
+        </button>
+        <p class="checkin-hint">печать · ключ · коридор комнат</p>
       </div>
     </div>
     <div id="intro-letter" class="intro-letter" hidden data-step="0">
@@ -94,6 +118,6 @@
         }
       }
     </script>
-    <script type="module" src="./safe.js?v=108"></script>
+    <script type="module" src="./safe.js?v=109"></script>
   </body>
 </html>
