@@ -110,13 +110,17 @@ let introDone = false;
 let introHasKey = false;
 let introLetterOpen = false;
 let assignedRoomNo = 0;
-let introWalkZ = 0;
-const INTRO_Z_MIN = -11.5;
-const INTRO_Z_MAX = 1.2;
-const INTRO_ROOM_COUNT = 12;
-const introDoors = []; // { no, side, mesh, pivot, targets, open, openT }
+let introWalkX = 0;
+const INTRO_DOOR_SPACING = 1.75;
+const INTRO_ROOM_COUNT = 10;
+const introDoors = []; // { no, x, pivot, targets, open, openT }
 let introRoot = null;
 let introDoorUnlocking = null;
+let introLetterStep = 0;
+
+function introDoorX(no) {
+  return (no - (INTRO_ROOM_COUNT + 1) / 2) * INTRO_DOOR_SPACING;
+}
 let focus = null; // null = центр комнаты; иначе у объекта
 let entered = [];
 let gateOpening = false;
@@ -539,11 +543,11 @@ function startHostSync() {
 /** стоять в центре / подойти ближе — фронтальный взгляд */
 const ROOMS = {
   intro: {
-    // длинный коридор комнат — смотрим вдоль −Z, широко влево/вправо
-    stand: new THREE.Vector3(0, 1.55, 0.6),
-    look: new THREE.Vector3(0, 1.45, -6),
-    yawRange: 1.45,
-    pitchRange: 0.22,
+    // ряд дверей слева→направо, смотрим на стену (−Z)
+    stand: new THREE.Vector3(0, 1.55, 2.35),
+    look: new THREE.Vector3(0, 1.4, 0.2),
+    yawRange: 1.15,
+    pitchRange: 0.2,
   },
   lobby: {
     stand: new THREE.Vector3(0, 1.62, 21.0),
@@ -742,7 +746,7 @@ let lookLastY = 0;
 let boardScrolling = false;
 let camMode = "stand"; // stand | focus
 let camAnchor = ROOMS.intro.stand.clone();
-let camLookAt = new THREE.Vector3(0, 1.45, -6);
+let camLookAt = new THREE.Vector3(0, 1.4, 0.2);
 let yawLimit = { min: -0.95, max: 0.95 };
 let pitchLimit = { min: -0.35, max: 0.4 };
 
@@ -764,8 +768,8 @@ function updateSideNav() {
     if (phase === "intro" && idle && introHasKey) {
       navRightBtn.hidden = false;
       navRightBtn.disabled = false;
-      navRightBtn.textContent = "Вперёд →";
-      navRightBtn.title = "Идти по коридору";
+      navRightBtn.textContent = "Вправо →";
+      navRightBtn.title = "Вдоль дверей вправо";
       navRightBtn.classList.remove("side-nav-radio");
       navRightBtn.removeAttribute("aria-disabled");
     } else if (phase === "lobby" && idle) {
@@ -791,8 +795,8 @@ function updateSideNav() {
     if (phase === "intro" && idle && introHasKey) {
       navLeftBtn.hidden = false;
       navLeftBtn.disabled = false;
-      navLeftBtn.textContent = "← Назад";
-      navLeftBtn.title = "Назад по коридору";
+      navLeftBtn.textContent = "← Влево";
+      navLeftBtn.title = "Вдоль дверей влево";
       navLeftBtn.removeAttribute("aria-disabled");
     } else {
       const showLeft = phase === "gate" && idle;
@@ -1063,9 +1067,9 @@ function snapToStand(roomKey) {
   focus = null;
   camMode = "stand";
   if (roomKey === "intro") {
-    const z = introWalkZ || r.stand.z;
-    camAnchor.set(r.stand.x, r.stand.y, z);
-    camLookAt.set(0, 1.45, z - 6);
+    const x = introWalkX;
+    camAnchor.set(x, r.stand.y, r.stand.z);
+    camLookAt.set(x, 1.4, 0.15);
   } else {
     camAnchor.copy(r.stand);
     camLookAt.copy(r.look);
@@ -1138,7 +1142,7 @@ function approachFocus(id) {
   if (phase === "intro" && String(id).startsWith("introDoor")) {
     const no = Number(String(id).replace("introDoor", ""));
     const door = introDoors.find((x) => x.no === no);
-    if (door) introWalkZ = door.z;
+    if (door) introWalkX = door.x;
   }
   ensureAudio();
   startMusic();
@@ -1173,7 +1177,16 @@ function returnToRoom() {
     focus = null;
     camMode = "stand";
     if (!lobbyDoorOpen && !lobbyOpening) lobbyPeekBlock.visible = true;
-    lobbyRoot.visible = true;
+    if (phase === "lobby") lobbyRoot.visible = true;
+  }
+  if (phase === "intro") {
+    const stand = r.stand.clone();
+    stand.x = introWalkX;
+    const look = new THREE.Vector3(introWalkX, 1.4, 0.15);
+    startCamLerp(stand, look, () => {
+      snapToStand("intro");
+    });
+    return;
   }
   startCamLerp(r.stand, r.look, () => {
     snapToStand(phase);
@@ -1226,10 +1239,13 @@ function goToRadio() {
   updateSideNav();
 }
 
-function introWalk(delta) {
+function introWalk(deltaX) {
   if (phase !== "intro" || !introHasKey || camLerp || focus) return;
-  introWalkZ = Math.max(INTRO_Z_MIN, Math.min(INTRO_Z_MAX, introWalkZ + delta));
-  camAnchor.z = introWalkZ;
+  const minX = introDoorX(1);
+  const maxX = introDoorX(INTRO_ROOM_COUNT);
+  introWalkX = Math.max(minX, Math.min(maxX, introWalkX + deltaX));
+  camAnchor.x = introWalkX;
+  camLookAt.x = introWalkX;
   applyLook();
   sfxClack(160, 0.02);
 }
@@ -1238,7 +1254,7 @@ if (navRightBtn) {
   navRightBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (phase === "intro") introWalk(-2.2);
+    if (phase === "intro") introWalk(INTRO_DOOR_SPACING);
     else if (phase === "lobby") goToRadio();
     else if (phase === "gate") goToGateKeypad();
   });
@@ -1248,7 +1264,7 @@ if (navLeftBtn) {
   navLeftBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (phase === "intro") introWalk(2.2);
+    if (phase === "intro") introWalk(-INTRO_DOOR_SPACING);
     else if (phase === "gate") goToGateArchive();
   });
   navLeftBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -1603,54 +1619,89 @@ function pickAssignedRoom() {
 
 function invitationLetterText(roomNo, name) {
   return (
-    `Уважаем${/[аяь]$/i.test(name) ? "ая" : "ый"} ${name},\n\n` +
-    `Вас приглашают на закрытый эвент FUTURUM.\n` +
-    `В конверте — ключ от вашей комнаты.\n\n` +
-    `Комната № ${String(roomNo).padStart(2, "0")}.\n` +
-    `Найдите дверь с этим номером в коридоре,\n` +
-    `откройте ключом и войдите.\n\n` +
-    `— Служба допуска FUTURUM`
+    `${name},\n\n` +
+    `Вас ждут на закрытом эвенте FUTURUM.\n` +
+    `В конверте — ключ от комнаты № ${String(roomNo).padStart(2, "0")}.\n\n` +
+    `Вы уже стоите у своей двери.\n` +
+    `Откройте ключом и войдите.\n\n` +
+    `— Служба допуска`
   );
+}
+
+function setPhysLetterStep(step) {
+  introLetterStep = step;
+  const wrap = document.getElementById("intro-letter");
+  const hint = document.getElementById("phys-hint");
+  const btn = document.getElementById("phys-action");
+  if (wrap) wrap.dataset.step = String(step);
+  const hints = [
+    "Конверт у вас в руках",
+    "Клапан открыт — достаньте письмо",
+    "Прочитайте приглашение",
+    "Сложите письмо обратно",
+    "В конверте ещё что-то… достаньте ключ",
+  ];
+  const labels = [
+    "Открыть конверт",
+    "Достать письмо",
+    "Сложить письмо",
+    "Заглянуть в конверт",
+    "Взять ключ",
+  ];
+  if (hint) hint.textContent = hints[step] || "";
+  if (btn) btn.textContent = labels[step] || "Далее";
+}
+
+function finishPhysLetter() {
+  const wrap = document.getElementById("intro-letter");
+  introLetterOpen = false;
+  if (wrap) wrap.hidden = true;
+  introHasKey = true;
+  const hud = document.getElementById("intro-key-hud");
+  const no = document.getElementById("intro-key-no");
+  if (no) no.textContent = String(assignedRoomNo).padStart(2, "0");
+  if (hud) hud.hidden = false;
+  sfxClack(260, 0.06);
+  setTimeout(() => sfxClack(180, 0.05), 100);
+  updateSideNav();
+}
+
+function advancePhysLetter() {
+  if (!introLetterOpen) return;
+  ensureAudio();
+  if (introLetterStep === 0) {
+    sfxClack(200, 0.04);
+    setPhysLetterStep(1);
+  } else if (introLetterStep === 1) {
+    softNoise?.(0.08, 0.02, 500, 1.2);
+    sfxClack(240, 0.05);
+    setPhysLetterStep(2);
+  } else if (introLetterStep === 2) {
+    sfxClack(180, 0.04);
+    setPhysLetterStep(3);
+  } else if (introLetterStep === 3) {
+    sfxClack(160, 0.035);
+    setPhysLetterStep(4);
+  } else {
+    sfxUnlock();
+    finishPhysLetter();
+  }
 }
 
 function showIntroLetter() {
   const wrap = document.getElementById("intro-letter");
-  const env = document.getElementById("intro-envelope");
   const body = document.getElementById("intro-sheet-body");
+  const tag = document.getElementById("phys-key-tag");
   if (!wrap) return;
   assignedRoomNo = pickAssignedRoom();
+  introWalkX = introDoorX(assignedRoomNo);
+  snapToStand("intro");
   if (body) body.textContent = invitationLetterText(assignedRoomNo, vkUser.name || "агент");
+  if (tag) tag.textContent = String(assignedRoomNo).padStart(2, "0");
   wrap.hidden = false;
   introLetterOpen = true;
-  if (env) {
-    env.classList.remove("is-open");
-    requestAnimationFrame(() => {
-      setTimeout(() => env.classList.add("is-open"), 180);
-    });
-  }
-  softNoise?.(0.06, 0.02, 400, 1.2);
-}
-
-function hideIntroLetterAndGiveKey() {
-  const wrap = document.getElementById("intro-letter");
-  const env = document.getElementById("intro-envelope");
-  if (env) env.classList.remove("is-open");
-  introLetterOpen = false;
-  setTimeout(() => {
-    if (wrap) wrap.hidden = true;
-    introHasKey = true;
-    const hud = document.getElementById("intro-key-hud");
-    const no = document.getElementById("intro-key-no");
-    if (no) no.textContent = String(assignedRoomNo).padStart(2, "0");
-    if (hud) hud.hidden = false;
-    sfxClack(280, 0.06);
-    setTimeout(() => sfxClack(190, 0.05), 90);
-    updateSideNav();
-    showNote(
-      "Ключ у вас",
-      `Комната № ${String(assignedRoomNo).padStart(2, "0")}.\nСмотрите по сторонам, идите вдоль коридора и откройте свою дверь.`
-    );
-  }, 280);
+  setPhysLetterStep(0);
+  softNoise?.(0.05, 0.015, 350, 1.1);
 }
 
 function beginIntroSequence() {
@@ -1659,41 +1710,65 @@ function beginIntroSequence() {
     return;
   }
   phase = "intro";
-  if (typeof introRoot !== "undefined" && introRoot) introRoot.visible = true;
-  if (typeof lobbyRoot !== "undefined" && lobbyRoot) lobbyRoot.visible = false;
-  introWalkZ = ROOMS.intro.stand.z;
-  camAnchor.copy(ROOMS.intro.stand);
+  if (introRoot) introRoot.visible = true;
+  if (lobbyRoot) lobbyRoot.visible = false;
+  assignedRoomNo = pickAssignedRoom();
+  introWalkX = introDoorX(assignedRoomNo);
   snapToStand("intro");
-  setTimeout(() => showIntroLetter(), 500);
+  setTimeout(() => showIntroLetter(), 450);
 }
 
 function enterLobbyFromIntro(skipAnim = false) {
   introDone = true;
   introHasKey = false;
+  focus = null;
+  setStepBackVisible(false);
   const hud = document.getElementById("intro-key-hud");
   if (hud) hud.hidden = true;
-  if (typeof introRoot !== "undefined" && introRoot) introRoot.visible = false;
-  if (typeof lobbyRoot !== "undefined" && lobbyRoot) lobbyRoot.visible = true;
-  phase = "lobby";
   hidePassCard?.();
   if (skipAnim) {
+    if (introRoot) introRoot.visible = false;
+    if (lobbyRoot) lobbyRoot.visible = true;
+    phase = "lobby";
     snapToStand("lobby");
-  } else {
-    startCamLerp(ROOMS.lobby.stand, ROOMS.lobby.look, () => {
-      snapToStand("lobby");
-    }, 0.012);
+    updateRoomBackBtn();
+    return;
   }
-  updateRoomBackBtn();
+  const door = introDoors.find((d) => d.no === assignedRoomNo);
+  const x = door ? door.x : introWalkX;
+  // шаг 1: пройти в открытую дверь
+  const through = new THREE.Vector3(x, 1.52, -1.55);
+  const lookThru = new THREE.Vector3(x, 1.42, -3.8);
+  startCamLerp(
+    through,
+    lookThru,
+    () => {
+      // шаг 2: уже «за порогом» — холл
+      if (introRoot) introRoot.visible = false;
+      if (lobbyRoot) lobbyRoot.visible = true;
+      phase = "lobby";
+      sfxClack(150, 0.04);
+      startCamLerp(
+        ROOMS.lobby.stand,
+        ROOMS.lobby.look,
+        () => {
+          snapToStand("lobby");
+          updateRoomBackBtn();
+        },
+        0.012
+      );
+    },
+    0.018
+  );
 }
 
 {
-  const closeBtn = document.getElementById("intro-letter-close");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", (e) => {
+  const btn = document.getElementById("phys-action");
+  if (btn) {
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!introLetterOpen) return;
-      hideIntroLetterAndGiveKey();
+      advancePhysLetter();
     });
   }
 }
@@ -2736,155 +2811,170 @@ const lobbyRoot = new THREE.Group();
 scene.add(lobbyRoot);
 lobbyRoot.visible = false; // сначала комната 0 (коридор)
 
-/* —— КОМНАТА 0: длинный коридор с дверями —— */
+/* —— КОМНАТА 0: двери в ряд слева→направо —— */
 introRoot = new THREE.Group();
 scene.add(introRoot);
 {
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.85, metalness: 0.08 });
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.9 });
-  const ceilMat = new THREE.MeshStandardMaterial({ color: 0x222830, roughness: 0.92 });
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.08, 28), floorMat);
-  floor.position.set(0, -0.04, -6);
+  const span = INTRO_ROOM_COUNT * INTRO_DOOR_SPACING + 4;
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xc8b8a0, roughness: 0.88, metalness: 0.04 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x8a7355, roughness: 0.55, metalness: 0.15 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a342c, roughness: 0.75 });
+  const carpetMat = new THREE.MeshStandardMaterial({ color: 0x5a3a3a, roughness: 0.92 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d4, roughness: 0.9 });
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(span, 0.08, 6.5), floorMat);
+  floor.position.set(0, -0.04, 1.2);
   floor.receiveShadow = true;
   introRoot.add(floor);
-  const ceil = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.08, 28), ceilMat);
-  ceil.position.set(0, 3.15, -6);
+  const runner = new THREE.Mesh(new THREE.BoxGeometry(span - 1, 0.02, 1.4), carpetMat);
+  runner.position.set(0, 0.01, 1.6);
+  runner.receiveShadow = true;
+  introRoot.add(runner);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(span, 0.1, 6.5), ceilMat);
+  ceil.position.set(0, 3.05, 1.2);
   introRoot.add(ceil);
+  // задняя стена с дверями
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(span, 3.1, 0.25), wallMat);
+  backWall.position.set(0, 1.5, -0.35);
+  backWall.receiveShadow = true;
+  introRoot.add(backWall);
+  // плинтус / карниз
+  const base = new THREE.Mesh(new THREE.BoxGeometry(span, 0.12, 0.08), trimMat);
+  base.position.set(0, 0.06, -0.18);
+  introRoot.add(base);
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(span, 0.1, 0.08), trimMat);
+  crown.position.set(0, 2.95, -0.18);
+  introRoot.add(crown);
+  // боковые торцы
   [-1, 1].forEach((side) => {
-    const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.2, 28), wallMat);
-    w.position.set(side * 2.55, 1.55, -6);
-    w.receiveShadow = true;
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.1, 6.5), wallMat);
+    w.position.set(side * (span / 2 - 0.1), 1.5, 1.2);
     introRoot.add(w);
   });
-  // конец коридора
-  const end = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.2, 0.2), wallMat);
-  end.position.set(0, 1.55, -19.5);
-  introRoot.add(end);
-  // редкие лампы
-  for (let i = 0; i < 5; i++) {
-    const z = -1 - i * 3.5;
-    const lamp = new THREE.Mesh(
-      new THREE.BoxGeometry(0.35, 0.06, 0.9),
-      new THREE.MeshStandardMaterial({
-        color: 0xd8e0e8,
-        emissive: 0xa8b8c8,
-        emissiveIntensity: 0.85,
-      })
+  // бра между дверями + потолочные
+  for (let i = 0; i < INTRO_ROOM_COUNT; i++) {
+    const x = introDoorX(i + 1);
+    if (i < INTRO_ROOM_COUNT - 1) {
+      const mid = (introDoorX(i + 1) + introDoorX(i + 2)) / 2;
+      const sconce = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.06, 0.12, 10),
+        new THREE.MeshStandardMaterial({
+          color: 0xe8dcc0,
+          emissive: 0xffd090,
+          emissiveIntensity: 0.7,
+        })
+      );
+      sconce.position.set(mid, 2.15, -0.15);
+      introRoot.add(sconce);
+      const sl = new THREE.PointLight(0xffe0b0, perfLow ? 0.55 : 1.1, 4.5, 2);
+      sl.position.set(mid, 2.05, 0.4);
+      introRoot.add(sl);
+    }
+    const ceilLamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.05, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0xf0e8d8, emissive: 0xffe8c0, emissiveIntensity: 0.5 })
     );
-    lamp.position.set(0, 3.0, z);
-    introRoot.add(lamp);
-    const pl = new THREE.PointLight(0xd0dce8, perfLow ? 1.2 : 2.2, 7, 2);
-    pl.position.set(0, 2.7, z);
-    introRoot.add(pl);
-  }
-  // табличка
-  {
-    const c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 128;
-    const cx = c.getContext("2d");
-    cx.fillStyle = "#1a1a1a";
-    cx.fillRect(0, 0, 512, 128);
-    cx.fillStyle = "#c9a86a";
-    cx.font = "700 36px sans-serif";
-    cx.textAlign = "center";
-    cx.fillText("ЖИЛОЙ КОРПУС · FUTURUM", 256, 78);
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 0.55),
-      new THREE.MeshBasicMaterial({ map: tex })
-    );
-    sign.position.set(0, 2.55, -0.2);
-    introRoot.add(sign);
+    ceilLamp.position.set(x, 2.98, 1.5);
+    introRoot.add(ceilLamp);
   }
 
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a342c, metalness: 0.25, roughness: 0.55 });
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1814, metalness: 0.4, roughness: 0.5 });
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x6a4e32, metalness: 0.2, roughness: 0.48 });
+  const panelMat = new THREE.MeshStandardMaterial({ color: 0x5a4228, metalness: 0.15, roughness: 0.55 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a2a18, metalness: 0.25, roughness: 0.45 });
 
-  function makeIntroDoor(no, side, z) {
+  function makeIntroDoor(no) {
+    const x = introDoorX(no);
     const root = new THREE.Group();
-    root.position.set(side * 2.35, 0, z);
-    root.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    root.position.set(x, 0, 0);
     introRoot.add(root);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.35, 0.12), frameMat);
-    frame.position.y = 1.15;
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.45, 0.14), frameMat);
+    frame.position.set(0, 1.2, -0.12);
     root.add(frame);
     const pivot = new THREE.Group();
     pivot.position.set(-0.48, 0, 0.02);
     root.add(pivot);
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.15, 0.07), doorMat);
-    door.position.set(0.48, 1.1, 0);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.98, 2.25, 0.07), doorMat);
+    door.position.set(0.48, 1.12, 0);
     door.castShadow = true;
     door.userData.kind = "introDoor";
     door.userData.roomNo = no;
     pivot.add(door);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), brass);
-    knob.position.set(0.82, 1.05, 0.06);
+    // филёнки
+    [[0.48, 1.55, 0.42, 0.55], [0.48, 0.75, 0.42, 0.55]].forEach(([px, py, w, h]) => {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), panelMat);
+      panel.position.set(px, py, 0.045);
+      panel.userData.kind = "introDoor";
+      panel.userData.roomNo = no;
+      pivot.add(panel);
+    });
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), brass);
+    knob.position.set(0.85, 1.05, 0.07);
     knob.userData.kind = "introDoor";
     knob.userData.roomNo = no;
     pivot.add(knob);
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.28, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0xc9a86a, metalness: 0.7, roughness: 0.3 })
+    );
+    plate.position.set(0.48, 1.85, 0.05);
+    plate.userData.kind = "introDoor";
+    plate.userData.roomNo = no;
+    pivot.add(plate);
     const numC = document.createElement("canvas");
     numC.width = 128;
     numC.height = 128;
     const nctx = numC.getContext("2d");
-    nctx.fillStyle = "#c9a86a";
-    nctx.font = "700 54px monospace";
+    nctx.clearRect(0, 0, 128, 128);
+    nctx.fillStyle = "#1a1208";
+    nctx.font = "700 58px monospace";
     nctx.textAlign = "center";
     nctx.textBaseline = "middle";
-    nctx.fillText(String(no).padStart(2, "0"), 64, 64);
+    nctx.fillText(String(no).padStart(2, "0"), 64, 70);
     const ntex = new THREE.CanvasTexture(numC);
     ntex.colorSpace = THREE.SRGBColorSpace;
     const label = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.28, 0.28),
+      new THREE.PlaneGeometry(0.18, 0.18),
       new THREE.MeshBasicMaterial({ map: ntex })
     );
-    label.position.set(0.48, 1.75, 0.05);
+    label.position.set(0.48, 1.85, 0.065);
     label.userData.kind = "introDoor";
     label.userData.roomNo = no;
     pivot.add(label);
     const hit = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 2.4, 0.5),
+      new THREE.BoxGeometry(1.25, 2.5, 0.55),
       new THREE.MeshBasicMaterial({ visible: false })
     );
-    hit.position.set(0.48, 1.15, 0.1);
+    hit.position.set(0, 1.2, 0.2);
     hit.userData.kind = "introDoor";
     hit.userData.roomNo = no;
     root.add(hit);
-    const entry = {
+    const targets = [door, knob, plate, label, hit, ...pivot.children];
+    introDoors.push({
       no,
-      side,
-      z,
+      x,
       root,
       pivot,
       door,
-      targets: [door, knob, label, hit],
+      targets,
       open: false,
       openT: 0,
       opening: false,
-    };
-    introDoors.push(entry);
-    // FOCUS для подхода
+    });
     FOCUS["introDoor" + no] = {
-      pos: new THREE.Vector3(side * 0.85, 1.5, z),
-      target: new THREE.Vector3(side * 2.2, 1.35, z),
-      yawRange: 0.35,
-      pitchRange: 0.18,
+      pos: new THREE.Vector3(x, 1.5, 2.0),
+      target: new THREE.Vector3(x, 1.35, 0.05),
+      yawRange: 0.28,
+      pitchRange: 0.16,
     };
   }
 
-  // 6 дверей слева (1–6), 6 справа (7–12)
-  for (let i = 0; i < 6; i++) {
-    const z = -1.5 - i * 2.4;
-    makeIntroDoor(i + 1, -1, z);
-    makeIntroDoor(i + 7, 1, z);
-  }
+  for (let i = 1; i <= INTRO_ROOM_COUNT; i++) makeIntroDoor(i);
 }
 
 function tryIntroDoor(roomNo) {
-  if (phase !== "intro" || introLetterOpen || introDoorUnlocking) return;
+  if (phase !== "intro" || introLetterOpen || introDoorUnlocking || camLerp) return;
   if (!introHasKey) {
-    showNote("Сначала письмо", "Достаньте приглашение из конверта — внутри будет ключ.");
+    showNote("Сначала конверт", "Откройте конверт, прочитайте письмо и достаньте ключ.");
     return;
   }
   const focusId = "introDoor" + roomNo;
@@ -2900,7 +2990,7 @@ function tryIntroDoor(roomNo) {
     sfxBeep(180, 0.06);
     showNote(
       "Не та дверь",
-      `Ключ от комнаты № ${String(assignedRoomNo).padStart(2, "0")}.\nЭта — № ${String(roomNo).padStart(2, "0")}.`
+      `Ваш ключ — от комнаты № ${String(assignedRoomNo).padStart(2, "0")}.`
     );
     return;
   }
@@ -2908,8 +2998,7 @@ function tryIntroDoor(roomNo) {
   d.openT = 0;
   introDoorUnlocking = d;
   sfxUnlock();
-  setTimeout(() => sfxDoor(), 200);
-  showNote("Открыто", `Комната № ${String(roomNo).padStart(2, "0")}.\nВходите…`);
+  setTimeout(() => sfxDoor(), 220);
 }
 
 const lobbyWallMat = new THREE.MeshStandardMaterial({
